@@ -205,26 +205,20 @@ function MayaProvider({ children }) {
     if (lastSpokenIdRef.current === id) return
     lastSpokenIdRef.current = id
 
-    // Detect: are we mid-quiz? If so, after Maya finishes speaking, auto-open
-    // the mic so Vasco can just answer out loud — no tapping. Real coach feel.
-    const isMidQuiz = (() => {
-      try {
-        const s = JSON.parse(localStorage.getItem('maya_quiz_session') || 'null')
-        return !!(s && Array.isArray(s.questions) && s.questions.length > 0)
-      } catch { return false }
-    })()
-    const isQuizMessage = last.type === 'quiz_question' || last.type === 'quiz_turn'
-
     if (state.profile?.voiceAutoSpeak) {
       dispatch({ type: 'SET_VOICE_STATE', payload: 'speaking' })
       speak(last.text, {
         onEnd: () => {
           dispatch({ type: 'SET_VOICE_STATE', payload: 'idle' })
-          // Auto-listen after a quiz question finishes speaking. We don't
-          // guard on isListening here — that value is captured in the
-          // closure and could be stale. startListening is idempotent now,
-          // so a redundant call is safe and the prior recognizer is reset.
-          if ((isMidQuiz || isQuizMessage) && isSTTSupported()) {
+          // Re-read quiz state at TTS-end time (not render time) so we don't
+          // reopen the mic after the user already hit ✕ END mid-speech.
+          let stillMidQuiz = false
+          try {
+            const s = JSON.parse(localStorage.getItem('maya_quiz_session') || 'null')
+            stillMidQuiz = !!(s && Array.isArray(s.questions) && s.questions.length > 0)
+          } catch {}
+          // startListening is idempotent — prior recognizer is torn down first.
+          if (stillMidQuiz && isSTTSupported()) {
             // Small delay so the final TTS audio fully clears before mic opens
             setTimeout(() => { try { startListening() } catch {} }, 350)
           }

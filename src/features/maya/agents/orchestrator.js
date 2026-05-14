@@ -220,20 +220,22 @@ function clearQuizSession() {
   try { localStorage.removeItem(QUIZ_SESSION_KEY) } catch {}
 }
 
-// Parse a numbered list ("1. ...", "2. ...") out of Maya's quiz response.
-// Joins continuation lines onto the current question.
+// Parse a numbered list ("1. ...", "2) ...", "**1.** ...", "Q1: ...") out of
+// Maya's quiz response. Joins continuation lines onto the current question.
+// Handles markdown-bolded numbers because Claude often emits "**1.**" for lists.
 function parseNumberedQuestions(text) {
   const lines = String(text || '').split('\n')
   const items = []
   let current = null
+  const startRe = /^\s*(?:\*\*)?\s*(?:Q\.?\s*)?(\d+)\s*[\.\):]\s*(?:\*\*)?\s*(.+?)\s*$/i
   for (const line of lines) {
-    const m = line.match(/^\s*(\d+)[\.\)]\s+(.+)/)
+    const m = line.match(startRe)
     if (m) {
       if (current) items.push(current.trim())
-      current = m[2]
-    } else if (current && line.trim() && !line.match(/^\s*[—-]{2,}/)) {
+      current = m[2].replace(/\*\*/g, '').trim()
+    } else if (current && line.trim() && !line.match(/^\s*[—–-]{2,}/)) {
       // Continuation. Stop on horizontal rules / Maya's closing line.
-      current += ' ' + line.trim()
+      current += ' ' + line.replace(/\*\*/g, '').trim()
     } else if (current && !line.trim()) {
       // Blank line — usually ends the list section. Push and stop appending.
       items.push(current.trim())
