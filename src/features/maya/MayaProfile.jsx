@@ -16,9 +16,14 @@ const C = {
 // Tagged with vibes so you can match Maya's personality to what you want
 const VOICE_PRESETS = [
   {
+    id: 'sMeMiS36FkhlOd721w9P',
+    name: "Vasco's coach ⭐",
+    desc: 'Custom voice — set as default for Maya. Tap to use.',
+  },
+  {
     id: '29vD33N1CtxCmqQRPOHJ',
     name: 'Drew 🏀',
-    desc: 'CHILL BASKETBALL PLAYER — laid-back American male, casual confident delivery. Post-game interview energy. ⭐ top pick',
+    desc: 'CHILL BASKETBALL PLAYER — laid-back American male, casual confident delivery. Post-game interview energy.',
   },
   {
     id: 'TX3LPaxmHKxFdv7VOQHJ',
@@ -168,6 +173,9 @@ export default function MayaProfile() {
           <Row label='Wake word ("hey maya")'>
             <Toggle on={profile.wakeWordEnabled} onChange={v => update({ wakeWordEnabled: v })} />
           </Row>
+          <Row label="Greet me when I walk in (camera)">
+            <Toggle on={profile.presenceDetectionEnabled} onChange={v => update({ presenceDetectionEnabled: v })} />
+          </Row>
 
           <Row label="System voice (free)">
             <select
@@ -209,6 +217,19 @@ export default function MayaProfile() {
               placeholder="sk-ant-..."
             />
           </Row>
+          <Row label="Model">
+            <select
+              value={profile.aiModel || 'claude-sonnet-4-5'}
+              onChange={e => update({ aiModel: e.target.value })}
+              style={{ ...input, fontSize: 12 }}
+            >
+              <option value="claude-sonnet-4-5">Sonnet 4.5 — fast, smart (default)</option>
+              <option value="claude-opus-4-5">Opus 4.5 — deeper, slower, costlier</option>
+            </select>
+          </Row>
+          <p style={{ fontSize: 10, color: C.muted, marginTop: 6, lineHeight: 1.5 }}>
+            Sonnet handles most chats fine. Switch to Opus for hard math debates, deep tactical breakdowns, or when Vasco wants the smarter sparring partner.
+          </p>
           <button
             onClick={() => {
               if (confirm('Wipe all API keys from this device? You will need to re-enter them to use Claude / Whisper / ElevenLabs.')) {
@@ -284,7 +305,11 @@ export default function MayaProfile() {
               return (
                 <button
                   key={v.id}
-                  onClick={() => update({ elevenLabsVoiceId: v.id })}
+                  onClick={() => {
+                    const next = { ...profile, elevenLabsVoiceId: v.id }
+                    setProfile(next)
+                    saveProfile(next)
+                  }}
                   style={{
                     padding: '10px 12px', textAlign: 'left',
                     background: active ? C.teal + '15' : C.bg,

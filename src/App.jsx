@@ -6,6 +6,7 @@ import AchievementModal from './features/maya/components/AchievementModal'
 import LiveLessonBanner from './features/maya/components/LiveLessonBanner'
 import BottomNav from './features/maya/components/BottomNav'
 import VoiceFab from './features/maya/components/VoiceFab'
+import QuizHUD from './features/maya/components/QuizHUD'
 import ErrorBoundary from './features/maya/components/ErrorBoundary'
 import { loadProfile } from './features/maya/lib/profile'
 import { registerServiceWorker, scheduleDailyNotifications, getPermission } from './lib/push'
@@ -57,6 +58,7 @@ const MayaPrepPlan = lazy(() => import('./features/maya/MayaPrepPlan'))
 const MayaAnalytics = lazy(() => import('./features/maya/MayaAnalytics'))
 const MayaTrophyRoom = lazy(() => import('./features/maya/MayaTrophyRoom'))
 const MayaBriefing = lazy(() => import('./features/maya/MayaBriefing'))
+const MayaNotebook = lazy(() => import('./features/maya/MayaNotebook'))
 
 function Loading() {
   return (
@@ -135,12 +137,14 @@ function GatedRoutes() {
           <Route path="/analytics" element={<MayaAnalytics />} />
           <Route path="/trophies" element={<MayaTrophyRoom />} />
           <Route path="/briefing" element={<MayaBriefing />} />
+          <Route path="/notebook" element={<MayaNotebook />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
       <CommandBar open={cmdOpen} onClose={() => setCmdOpen(false)} />
       <AchievementModal />
       <LiveLessonBanner />
+      <QuizHUD />
       <BottomNav />
       <VoiceFab />
     </>

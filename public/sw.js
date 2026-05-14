@@ -26,6 +26,22 @@ self.addEventListener('fetch', (e) => {
   // Only handle GETs from same origin
   if (e.request.method !== 'GET' || url.origin !== self.location.origin) return
 
+  // Never intercept Vite-internal paths. If a stale SW is left registered
+  // while the dev server is running, caching these would serve old
+  // optimized-deps chunks and the page would end up with two copies of
+  // React (→ null useContext, Invalid hook call). Belt-and-suspenders:
+  // the SW skips dev registration in push.js, but bail here too.
+  if (
+    url.pathname.startsWith('/@vite/') ||
+    url.pathname.startsWith('/@react-refresh') ||
+    url.pathname.startsWith('/@id/') ||
+    url.pathname.startsWith('/@fs/') ||
+    url.pathname.startsWith('/node_modules/') ||
+    url.pathname.startsWith('/src/') ||
+    url.search.includes('?v=') ||
+    url.search.includes('?t=')
+  ) return
+
   // Network-first for HTML / API
   if (e.request.mode === 'navigate' || url.pathname.endsWith('.html')) {
     e.respondWith(

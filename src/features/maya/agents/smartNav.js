@@ -24,6 +24,7 @@ const ALL_ITEMS = [
   { icon: '🎹', label: 'Piano',     to: '/piano',       tags: ['hobby:piano', 'hobby:music'] },
   { icon: '📖', label: 'Reading',   to: '/reading',     tags: ['academic', 'hobby:reading'] },
   { icon: '💡', label: 'Explain',   to: '/explain',     tags: ['academic'] },
+  { icon: '📓', label: 'Notebook',  to: '/notebook',    tags: ['academic', 'core'] },
   { icon: '⏲',  label: 'Timer',     to: '/timer',       tags: ['focus'] },
   { icon: '📱', label: 'Screen',    to: '/screentime',  tags: ['health'] },
   { icon: '🔤', label: 'Vocab',     to: '/vocab',       tags: ['academic'] },
@@ -122,6 +123,14 @@ function getSmartNav({ profile = {}, now } = {}) {
   // Streak broken?
   const streakBroken = (profile.currentStreak || 0) === 0 && (profile.longestStreak || 0) >= 5
 
+  // Notebook activity — boost the tile while sources are loaded so the kid
+  // doesn't lose track of an active study corpus.
+  let notebookActive = false
+  try {
+    const raw = JSON.parse(localStorage.getItem('maya_sources') || '[]')
+    notebookActive = Array.isArray(raw) && raw.length > 0
+  } catch {}
+
   // ── Score every item ──
   const scored = ALL_ITEMS.map(item => {
     let score = 0
@@ -149,6 +158,9 @@ function getSmartNav({ profile = {}, now } = {}) {
 
     // Recent visit boost
     if (recentRoutes.has(item.to)) score += 20
+
+    // Notebook with sources loaded — keep it top of mind
+    if (item.to === '/notebook' && notebookActive) score += 55
 
     // Tiny tiebreaker so stable order
     score += Math.random() * 0.01

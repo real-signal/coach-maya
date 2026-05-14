@@ -74,7 +74,24 @@ const MESSAGE_TYPES = {
   EVENING_WRAP: 'evening_wrap',
   SPOT_CHECK: 'spot_check',
   FREE_CHAT: 'free_chat',
+  QUIZ_REQUEST: 'quiz_request',  // long-form: generate questions / teach
+  DEEP_EXPLAIN: 'deep_explain',  // long-form: explain a concept properly
+  QUIZ_TURN: 'quiz_turn',        // mid-quiz: react to answer, ask next question
+  QUIZ_FINALE: 'quiz_finale',    // end-of-quiz: react to last answer, summarize
 }
+
+// When Vasco asks for a quiz / questions / explanation, the 1-3 sentence rule
+// gets in the way. This addendum unlocks paragraph mode for those turns only.
+const TEACHING_MODE_ADDENDUM = `
+
+TEACHING MODE — ACTIVE FOR THIS TURN:
+The kid asked for questions / a quiz / a real explanation. Drop the 1-3 sentence cap for this turn.
+- Format clearly: numbered list for questions, short paragraphs for explanations.
+- Pitch difficulty at competition / olympiad / advanced-grade level — Vasco is Mensa, not a beginner.
+- Mix question types: definitional, conceptual, calculation, edge cases, "what if" thought experiments.
+- Don't give answers unless explicitly asked — questions are for him to wrestle with.
+- After the list, drop ONE Maya-voice line at the end (sarcastic encouragement, ≤1 sentence) to stay in character.
+- Still no lecturing, no "you should", no warm-up phrases.`
 
 // ─── Get kid's name from profile ───
 function getKidName() {
@@ -118,6 +135,31 @@ function buildPrompt(type, context) {
     case MESSAGE_TYPES.FREE_CHAT:
       return `${name} said: "${context.userMessage}". Respond as Maya. Stay in character. 1-3 sentences.`
 
+    case MESSAGE_TYPES.QUIZ_REQUEST:
+      return `${name} asked: "${context.userMessage}". Generate the requested questions on the topic — pitched at competition / advanced-grade level. Numbered list. Don't include answers unless asked. End with one short Maya-voice line.`
+
+    case MESSAGE_TYPES.DEEP_EXPLAIN:
+      return `${name} asked: "${context.userMessage}". Explain the concept properly — clear structure, advanced level, use analogies where they help. End with one short Maya-voice line.`
+
+    case MESSAGE_TYPES.QUIZ_TURN:
+      return `You're drilling ${name} on ${context.topic}. The question was: "${context.currentQuestion}". His answer: "${context.userAnswer}".
+
+Respond like a real coach mid-drill:
+1. EVALUATE THE ANSWER WITH SUBSTANCE — not vague praise or generic sarcasm. If he's right, name the specific thing he got. If he's partially right, identify exactly what's missing. If he's wrong, point at the misconception in one beat (don't lecture, just redirect). If he hand-waved with a buzzword ("uncertainty principle", "wave function collapses") without explaining, call that out.
+2. Then transition into the next question naturally — vary the lead-in: "Next.", "Alright —", "Try this:", "Different angle —", "Now —", "Push deeper:", "Moving on.". Don't number it, don't say "Q3", just ask.
+3. The next question is: "${context.nextQuestion}".
+
+Total: 2-3 sentences MAX. Maya voice — sharp, specific, no warm-up phrases, no "great answer!" or "good try!". Think elite coach who respects him enough to be honest.`
+
+    case MESSAGE_TYPES.QUIZ_FINALE:
+      return `Final question of the drill on ${context.topic}. Question: "${context.currentQuestion}". ${name}'s answer: "${context.userAnswer}".
+
+Respond like a coach wrapping a session:
+1. React to this last answer with SUBSTANCE — what he got, what he missed, in one specific beat.
+2. Close the session with one line that reflects on what you actually saw — strengths and gaps. NO "great session!" energy. Be specific: "You're solid on X but Y is still vague — read up on it." or "Sharp on the conceptual stuff, but you keep dropping the math. Fix that."
+
+2 sentences MAX. Maya voice.`
+
     default:
       return context.userMessage || `Say something encouraging to ${name}.`
   }
@@ -159,14 +201,19 @@ async function generateMessage(type, context, personalityContext = '', history =
   const streak = context.streak || 0
   const adaptive = buildAdaptiveTone(context, mood, combo, streak)
 
+  const isLongForm = type === MESSAGE_TYPES.QUIZ_REQUEST || type === MESSAGE_TYPES.DEEP_EXPLAIN
+  // Quiz turns and finale are short — they should sound like a real coach
+  // mid-drill, not a lecture. Use the normal voice rules (1-3 sentences).
+  const teaching = isLongForm ? TEACHING_MODE_ADDENDUM : ''
   const systemPrompt = MAYA_SYSTEM_PROMPT.replace(
     '{personality_context}',
-    `${personalityContext}\n\n${adaptive}`
+    `${personalityContext}\n\n${adaptive}${teaching}`
   )
   const userPrompt = buildPrompt(type, context)
+  const maxTokens = isLongForm ? 1500 : 250
 
   try {
-    const response = await callClaudeAPI(systemPrompt, userPrompt, history)
+    const response = await callClaudeAPI(systemPrompt, userPrompt, history, maxTokens)
     return { text: response, type, timestamp: new Date().toISOString() }
   } catch (err) {
     return { text: getFallbackMessage(type, context), type, timestamp: new Date().toISOString() }
@@ -207,7 +254,19 @@ function checkRateLimit() {
   saveCalls(all.slice(-RATE_LIMIT.maxPerDay))
 }
 
-async function callClaudeAPI(systemPrompt, userPrompt, history = []) {
+// Whitelist of models we'll send — prevents arbitrary strings from profile
+// reaching the API and ensures graceful default if profile field is corrupt.
+const ALLOWED_MODELS = new Set(['claude-sonnet-4-5', 'claude-opus-4-5'])
+
+function getModelFromProfile() {
+  try {
+    const p = JSON.parse(localStorage.getItem('maya_profile') || '{}')
+    if (p?.aiModel && ALLOWED_MODELS.has(p.aiModel)) return p.aiModel
+  } catch {}
+  return 'claude-sonnet-4-5'
+}
+
+async function callClaudeAPI(systemPrompt, userPrompt, history = [], maxTokens = 250) {
   checkRateLimit()
   const apiKey = getApiKey('anthropic')
   if (!apiKey) throw new Error('No API key configured')
@@ -221,8 +280,8 @@ async function callClaudeAPI(systemPrompt, userPrompt, history = []) {
   }))
 
   const body = JSON.stringify({
-    model: 'claude-sonnet-4-5',
-    max_tokens: 250,
+    model: getModelFromProfile(),
+    max_tokens: Math.min(Math.max(parseInt(maxTokens) || 250, 64), 4096),
     system: safeSystem,
     messages: [
       ...safeHistory,

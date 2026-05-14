@@ -15,8 +15,23 @@ const VAPID_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || ''
 let _swRegistration = null
 
 // ─── Service Worker Registration ───
+// In dev, the SW must NOT run — it cache-firsts JS chunks, and when Vite's
+// optimizer rotates dep hashes mid-session the browser keeps stale chunks
+// cached. Result: two copies of React in one page → "Cannot read properties
+// of null (reading 'useContext')" + "Invalid hook call". Skip + cleanup.
 export async function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return null
+  if (import.meta.env.DEV) {
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations()
+      await Promise.all(regs.map(r => r.unregister()))
+      if (typeof caches !== 'undefined') {
+        const keys = await caches.keys()
+        await Promise.all(keys.map(k => caches.delete(k)))
+      }
+    } catch {}
+    return null
+  }
   try {
     _swRegistration = await navigator.serviceWorker.register('/sw.js')
     return _swRegistration

@@ -71,15 +71,26 @@ function listAllVoices() {
 }
 
 // ─── ElevenLabs (premium) ───
+let currentAudio = null
+let speechGen = 0           // monotonic counter — bumped on every speak()/cancel
+let currentAbort = null     // aborts an in-flight fetch when superseded
+
 async function speakElevenLabs(text, profile, callbacks = {}) {
   const apiKey = getApiKey('elevenlabs')
-  // Default to Drew (chill basketball player) if key set but no voice picked
-  const voiceId = profile.elevenLabsVoiceId?.trim() || '29vD33N1CtxCmqQRPOHJ'
+  // Default to Vasco's picked coach voice if key set but no voice chosen yet
+  const voiceId = profile.elevenLabsVoiceId?.trim() || 'sMeMiS36FkhlOd721w9P'
   if (!apiKey) throw new Error('No ElevenLabs API key')
+
+  // Capture this call's generation. If a newer speak() runs while we're
+  // awaiting fetch/blob, our generation will be stale → bail before playing.
+  const myGen = ++speechGen
+  const ac = new AbortController()
+  currentAbort = ac
 
   callbacks.onStart?.()
   const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`, {
     method: 'POST',
+    signal: ac.signal,
     headers: {
       'xi-api-key': apiKey,
       'Content-Type': 'application/json',
@@ -87,37 +98,39 @@ async function speakElevenLabs(text, profile, callbacks = {}) {
     },
     body: JSON.stringify({
       text,
-      model_id: 'eleven_turbo_v2_5',
+      // multilingual_v2 is the most expressive/natural model
+      // (turbo trades quality for latency — too robotic for coaching)
+      model_id: 'eleven_multilingual_v2',
       voice_settings: {
-        stability: 0.45,
-        similarity_boost: 0.75,
-        style: 0.35,
+        stability: 0.35,           // lower = more emotional variation
+        similarity_boost: 0.85,    // higher = closer to source voice
+        style: 0.55,               // higher = more expressive delivery
         use_speaker_boost: true,
       },
     }),
   })
+  if (myGen !== speechGen) return   // superseded during fetch
   if (!res.ok) {
     let details = ''
     try { details = await res.text() } catch {}
     throw new Error(`ElevenLabs ${res.status}: ${details.slice(0, 200)}`)
   }
   const blob = await res.blob()
+  if (myGen !== speechGen) return   // superseded during blob read
   const url = URL.createObjectURL(blob)
   const audio = new Audio(url)
   currentAudio = audio
   audio.onended = () => {
     URL.revokeObjectURL(url)
-    currentAudio = null
+    if (currentAudio === audio) currentAudio = null
     callbacks.onEnd?.()
   }
   audio.onerror = (e) => {
-    currentAudio = null
+    if (currentAudio === audio) currentAudio = null
     callbacks.onError?.(e)
   }
   await audio.play()
 }
-
-let currentAudio = null
 
 /**
  * Speak text as Maya. Returns a promise that resolves when finished.
@@ -172,12 +185,19 @@ async function speak(text, { onStart, onBoundary, onEnd, onError } = {}) {
 }
 
 function cancelSpeech() {
+  // Bump generation so any in-flight ElevenLabs fetch bails before play()
+  speechGen++
+  if (currentAbort) {
+    try { currentAbort.abort() } catch {}
+    currentAbort = null
+  }
   if ('speechSynthesis' in window) {
     window.speechSynthesis.cancel()
     currentUtterance = null
   }
   if (currentAudio) {
     try { currentAudio.pause() } catch {}
+    try { currentAudio.src = '' } catch {}
     currentAudio = null
   }
 }

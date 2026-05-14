@@ -11,6 +11,7 @@ import { startWatchdog, stopWatchdog } from '../lib/scheduler'
 import { WakeWordDetector } from '../lib/wakeWord'
 import sfx from '../lib/sfx'
 import { recordTaskOutcome, logFocusScore, logSubjectScore } from '../agents/intelligence'
+import { startPresenceWatch, stopPresenceWatch, buildArrivalLine } from '../agents/presence'
 import { saveMood as saveMoodToHistory } from '../lib/moods'
 import { generateDefaultSchedule } from '../agents/scheduleGenerator'
 import {
@@ -204,10 +205,30 @@ function MayaProvider({ children }) {
     if (lastSpokenIdRef.current === id) return
     lastSpokenIdRef.current = id
 
+    // Detect: are we mid-quiz? If so, after Maya finishes speaking, auto-open
+    // the mic so Vasco can just answer out loud — no tapping. Real coach feel.
+    const isMidQuiz = (() => {
+      try {
+        const s = JSON.parse(localStorage.getItem('maya_quiz_session') || 'null')
+        return !!(s && Array.isArray(s.questions) && s.questions.length > 0)
+      } catch { return false }
+    })()
+    const isQuizMessage = last.type === 'quiz_question' || last.type === 'quiz_turn'
+
     if (state.profile?.voiceAutoSpeak) {
       dispatch({ type: 'SET_VOICE_STATE', payload: 'speaking' })
       speak(last.text, {
-        onEnd: () => dispatch({ type: 'SET_VOICE_STATE', payload: 'idle' }),
+        onEnd: () => {
+          dispatch({ type: 'SET_VOICE_STATE', payload: 'idle' })
+          // Auto-listen after a quiz question finishes speaking. We don't
+          // guard on isListening here — that value is captured in the
+          // closure and could be stale. startListening is idempotent now,
+          // so a redundant call is safe and the prior recognizer is reset.
+          if ((isMidQuiz || isQuizMessage) && isSTTSupported()) {
+            // Small delay so the final TTS audio fully clears before mic opens
+            setTimeout(() => { try { startListening() } catch {} }, 350)
+          }
+        },
         onError: () => dispatch({ type: 'SET_VOICE_STATE', payload: 'idle' }),
       })
     }
@@ -340,6 +361,13 @@ function MayaProvider({ children }) {
       alert('Voice input not supported in this browser. Try Chrome or Safari.')
       return
     }
+    // Idempotent: if a recognizer is already running (e.g. auto-listen fired
+    // while user already had the mic open), tear it down before starting a
+    // new one. Otherwise the old instance leaks and we get two transcripts.
+    if (stopListenRef.current) {
+      try { stopListenRef.current() } catch {}
+      stopListenRef.current = null
+    }
     cancelSpeech()
     setIsListening(true)
     setInterimTranscript('')
@@ -409,6 +437,64 @@ function MayaProvider({ children }) {
     const history = loadFromStorage('maya_daily_reports', [])
     return generateWeeklyDigest(Array.isArray(history) ? history : [])
   }, [])
+
+  // ─── Quiz session: end-from-anywhere ───
+  // The orchestrator manages quiz state in localStorage. The HUD needs a way
+  // to bail out without typing "stop" in chat. Clears the session + drops a
+  // Maya-voice closing line so the chat history reflects the exit.
+  const endQuizSession = useCallback(() => {
+    try {
+      const raw = localStorage.getItem('maya_quiz_session')
+      const s = raw ? JSON.parse(raw) : null
+      const topic = s?.topic || 'that'
+      const at = s?.idx != null && Array.isArray(s?.questions)
+        ? `Q${s.idx + 1}/${s.questions.length}`
+        : ''
+      localStorage.removeItem('maya_quiz_session')
+      dispatch({ type: 'ADD_MESSAGE', payload: {
+        text: `Done. We bailed on ${topic}${at ? ` at ${at}` : ''}. Pick it up later.`,
+        type: 'maya', timestamp: new Date().toISOString(),
+      }})
+    } catch {
+      try { localStorage.removeItem('maya_quiz_session') } catch {}
+    }
+  }, [])
+
+  // Presence detection — engage Vasco when he walks back in
+  useEffect(() => {
+    if (!state.profile?.presenceDetectionEnabled) {
+      stopPresenceWatch()
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      const res = await startPresenceWatch(() => {
+        // Don't barge in on an active conversation or speech
+        if (state.voiceState === 'speaking' || state.voiceState === 'listening') return
+        const line = buildArrivalLine({
+          profile: state.profile,
+          tasks: state.tasks,
+          todayMood: state.todayMood,
+          gamification: state.gamification,
+        })
+        const msg = { text: line, type: 'maya', timestamp: new Date().toISOString(), tag: 'presence_arrive' }
+        dispatch({ type: 'ADD_MESSAGE', payload: msg })
+        // speakText auto-respects voiceAutoSpeak; force a speak here since
+        // arrival is the whole point — but only if user opted into voice.
+        if (state.profile?.voiceAutoSpeak) {
+          dispatch({ type: 'SET_VOICE_STATE', payload: 'speaking' })
+          speak(line, {
+            onEnd: () => dispatch({ type: 'SET_VOICE_STATE', payload: 'idle' }),
+            onError: () => dispatch({ type: 'SET_VOICE_STATE', payload: 'idle' }),
+          })
+        }
+      })
+      if (!res.ok && !cancelled) {
+        console.warn('Presence watch failed:', res.error)
+      }
+    })()
+    return () => { cancelled = true; stopPresenceWatch() }
+  }, [state.profile?.presenceDetectionEnabled])
 
   // Wake word — "hey maya"
   useEffect(() => {
@@ -498,6 +584,7 @@ function MayaProvider({ children }) {
     speakText,
     getDailyReport,
     getWeeklyDigest,
+    endQuizSession,
   }
 
   return <MayaContext.Provider value={value}>{children}</MayaContext.Provider>

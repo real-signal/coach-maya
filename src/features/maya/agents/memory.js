@@ -45,12 +45,17 @@ function addConceptsFromLesson(lesson, conceptList) {
   for (const c of conceptList) {
     const phrase = c.phrase || c.word || c
     if (!phrase || existing.has(phrase.toLowerCase())) continue
+    // Per-concept definition (from notebook flashcards) wins over the lesson
+    // transcript snippet. Keeps the back of the card meaningful.
+    const snippet = (c && c.definition)
+      ? String(c.definition).slice(0, 240)
+      : (lesson.fullTranscript || '').slice(0, 200)
     const item = {
       id: `c_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       phrase,
       subject: lesson.subject,
       lessonId: lesson.id,
-      sourceSnippet: (lesson.fullTranscript || '').slice(0, 200),
+      sourceSnippet: snippet,
       box: 0,
       learnedAt: nowISO(),
       lastReviewedAt: null,

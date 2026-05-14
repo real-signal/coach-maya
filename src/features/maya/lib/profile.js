@@ -32,6 +32,8 @@ const DEFAULT_PROFILE = {
   elevenLabsVoiceId: '',       // chosen ElevenLabs voice id
   notificationsEnabled: false, // Web Notifications opt-in
   wakeWordEnabled: false,      // "hey maya" always-listen
+  presenceDetectionEnabled: false, // camera-based "walked in" greeting (opt-in)
+  aiModel: 'claude-sonnet-4-5',    // 'claude-sonnet-4-5' (fast) | 'claude-opus-4-5' (deeper)
   avatarStyle: 'pixar',
   themeAccent: '#2DD4BF',
   // Personality model (learner-managed)
