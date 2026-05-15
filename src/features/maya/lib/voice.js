@@ -203,7 +203,14 @@ function cancelSpeech() {
 }
 
 function isSpeaking() {
-  return !!(window.speechSynthesis?.speaking)
+  return !!(window.speechSynthesis?.speaking) || !!(currentAudio && !currentAudio.paused)
+}
+
+// True iff some form of TTS audio is currently playing (web speech OR ElevenLabs).
+function isAnySpeechActive() {
+  if (window.speechSynthesis?.speaking) return true
+  if (currentAudio && !currentAudio.paused) return true
+  return false
 }
 
 // ─── STT: Maya Listening ───
@@ -264,6 +271,7 @@ export {
   speak,
   cancelSpeech,
   isSpeaking,
+  isAnySpeechActive,
   listen,
   isSTTSupported,
   pickMayaVoice,

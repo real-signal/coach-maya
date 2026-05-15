@@ -25,6 +25,7 @@ const ALL_ITEMS = [
   { icon: '📖', label: 'Reading',   to: '/reading',     tags: ['academic', 'hobby:reading'] },
   { icon: '💡', label: 'Explain',   to: '/explain',     tags: ['academic'] },
   { icon: '📓', label: 'Notebook',  to: '/notebook',    tags: ['academic', 'core'] },
+  { icon: '🗒', label: 'Notes',     to: '/notes',       tags: ['always'] },
   { icon: '⏲',  label: 'Timer',     to: '/timer',       tags: ['focus'] },
   { icon: '📱', label: 'Screen',    to: '/screentime',  tags: ['health'] },
   { icon: '🔤', label: 'Vocab',     to: '/vocab',       tags: ['academic'] },

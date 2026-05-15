@@ -5,7 +5,7 @@ import { evaluateResponse, createSpotCheckRecord } from '../agents/antiGaming'
 import { recordEvent } from '../agents/personalityLearner'
 import { generateDailyReport, generateWeeklyDigest } from '../agents/parentIntelligence'
 import { loadProfile, saveProfile, buildPersonalityContext } from '../lib/profile'
-import { speak, cancelSpeech, listen, isSTTSupported } from '../lib/voice'
+import { speak, cancelSpeech, listen, isSTTSupported, isAnySpeechActive } from '../lib/voice'
 import { notify } from '../lib/notifications'
 import { startWatchdog, stopWatchdog } from '../lib/scheduler'
 import { WakeWordDetector } from '../lib/wakeWord'
@@ -207,8 +207,31 @@ function MayaProvider({ children }) {
 
     if (state.profile?.voiceAutoSpeak) {
       dispatch({ type: 'SET_VOICE_STATE', payload: 'speaking' })
+      let bargeStop = null
+      // ── Voice barge-in: while Maya speaks, run a light listener. Any
+      //    detected speech (final transcript) cancels TTS + sends it as input.
+      //    Default-on; users can disable via profile.voiceBargeIn = false.
+      if (state.profile?.voiceBargeIn !== false && isSTTSupported()) {
+        try {
+          bargeStop = listen({
+            onResult: (transcript, isFinal) => {
+              if (!isFinal || !transcript || !transcript.trim()) return
+              // Cancel Maya mid-sentence so she gets out of the way.
+              try { cancelSpeech() } catch {}
+              dispatch({ type: 'SET_VOICE_STATE', payload: 'idle' })
+              try { bargeStop?.() } catch {}
+              bargeStop = null
+              sendMessage(transcript.trim())
+            },
+            onError: () => { try { bargeStop?.() } catch {}; bargeStop = null },
+            onEnd: () => { bargeStop = null },
+          })
+        } catch {}
+      }
       speak(last.text, {
         onEnd: () => {
+          try { bargeStop?.() } catch {}
+          bargeStop = null
           dispatch({ type: 'SET_VOICE_STATE', payload: 'idle' })
           // Re-read quiz state at TTS-end time (not render time) so we don't
           // reopen the mic after the user already hit ✕ END mid-speech.
@@ -223,7 +246,11 @@ function MayaProvider({ children }) {
             setTimeout(() => { try { startListening() } catch {} }, 350)
           }
         },
-        onError: () => dispatch({ type: 'SET_VOICE_STATE', payload: 'idle' }),
+        onError: () => {
+          try { bargeStop?.() } catch {}
+          bargeStop = null
+          dispatch({ type: 'SET_VOICE_STATE', payload: 'idle' })
+        },
       })
     }
 

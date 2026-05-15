@@ -9,6 +9,8 @@ import { evaluateSchedule, getDebrief, getMorningBriefing } from './scheduler'
 import { generateMessage, MESSAGE_TYPES } from './mayaCore'
 import { shouldSpotCheck, generateSpotCheckQuestion, createSpotCheckRecord } from './antiGaming'
 import { recordInsideJoke } from './personalityLearner'
+import { logQuizTurn, getRetestQueue, markReviewed } from './quizHistory'
+import { awardPerfectDay, awardStreakMilestone } from './streakFreeze'
 
 // ─── Event Types ───
 const EVENTS = {
@@ -87,6 +89,29 @@ async function handleTaskComplete(task, state, personalityContext) {
       timestamp: new Date().toISOString(),
     })
   }
+
+  // 5d. Streak Freeze tokens — award on perfect-day (S grade) and on
+  //     every 7-day streak milestone. awardPerfectDay is idempotent per
+  //     calendar day so repeated calls won't over-credit.
+  try {
+    if (result.state.gamification?.dayGrade?.grade === 'S') {
+      const aw = awardPerfectDay()
+      if (aw.awarded) {
+        result.messages.push({
+          text: `🧊 Freeze token earned — perfect day. You've got ${aw.tokens} in the bank. Use 'em to protect a streak when life hits.`,
+          type: 'maya', timestamp: new Date().toISOString(),
+        })
+      }
+    }
+    const streak = state.profile?.currentStreak || 0
+    const aw2 = awardStreakMilestone(streak)
+    if (aw2.awarded) {
+      result.messages.push({
+        text: `🧊 ${aw2.streak}-day streak — that's another freeze token. Wallet: ${aw2.tokens}.`,
+        type: 'maya', timestamp: new Date().toISOString(),
+      })
+    }
+  } catch {}
 
   // 6. Update last activity time
   result.state.lastActivityTime = new Date().toISOString()
@@ -338,6 +363,21 @@ async function handleUserChat(message, state, personalityContext) {
         currentQuestion,
         userAnswer: message,
       }, personalityContext, history)
+      // Log the final Q+A. Maya's reaction text feeds the grading heuristic.
+      try {
+        logQuizTurn({
+          topic: session.topic,
+          question: currentQuestion,
+          answer: message,
+          mayaReaction: finale?.text || '',
+          sessionId: session.startedAt || '',
+          origin: session.origin || 'chat',
+        })
+        // If this turn was a re-test of a prior question, bump review counter.
+        if (session.retestIds && session.retestIds[session.idx]) {
+          markReviewed(session.retestIds[session.idx])
+        }
+      } catch {}
       clearQuizSession()
       return {
         events: [{ agent: 'maya_core', action: 'quiz_finale' }],
@@ -354,6 +394,19 @@ async function handleUserChat(message, state, personalityContext) {
       userAnswer: message,
       nextQuestion,
     }, personalityContext, history)
+    try {
+      logQuizTurn({
+        topic: session.topic,
+        question: currentQuestion,
+        answer: message,
+        mayaReaction: turnMsg?.text || '',
+        sessionId: session.startedAt || '',
+        origin: session.origin || 'chat',
+      })
+      if (session.retestIds && session.retestIds[session.idx]) {
+        markReviewed(session.retestIds[session.idx])
+      }
+    } catch {}
     saveQuizSession({ ...session, idx: session.idx + 1 })
     return {
       events: [{ agent: 'maya_core', action: 'quiz_turn', data: { idx: session.idx + 1 } }],
@@ -373,22 +426,44 @@ async function handleUserChat(message, state, personalityContext) {
   // ── Quiz request: parse the numbered list, save remaining for one-at-a-time
   //    drill, lead with the first question conversationally — no "Q1." prefix,
   //    no scripted instructions. Just start drilling, like a real coach.
+  //
+  //    SPACED RETEST: blend up to 2 previously-missed questions into the new
+  //    drill so weak spots resurface naturally. Tagged via retestIds so we
+  //    can mark them reviewed when answered.
   if (msgType === MESSAGE_TYPES.QUIZ_REQUEST) {
-    const questions = parseNumberedQuestions(mayaMsg.text)
-    if (questions.length >= 2) {
+    const fresh = parseNumberedQuestions(mayaMsg.text)
+    if (fresh.length >= 2) {
       const topic = extractTopic(message)
+      let questions = [...fresh]
+      let retestIds = new Array(questions.length).fill(null)
+      try {
+        const retest = getRetestQueue(2)
+        if (retest.length) {
+          // Insert each at a pseudo-random middle slot so it doesn't always
+          // lead or trail. Topic-matched ones go first.
+          const matching = retest.filter(r => r.topic && topic && r.topic.toLowerCase().includes(topic.toLowerCase().slice(0, 10)))
+          const pool = matching.length ? matching : retest
+          for (const r of pool.slice(0, 2)) {
+            const insertAt = 1 + Math.floor(Math.random() * Math.max(1, questions.length - 1))
+            questions.splice(insertAt, 0, r.question)
+            retestIds.splice(insertAt, 0, r.id)
+          }
+        }
+      } catch {}
       saveQuizSession({
         questions,
         idx: 0,
         topic,
         startedAt: new Date().toISOString(),
+        origin: 'chat',
+        retestIds,
       })
       const opener = pickOpener(questions.length, topic)
       // Single fluid message — opener + first question, so TTS reads it as
       // one coaching beat instead of "instructions then question".
       const firstMessage = `${opener} ${questions[0]}`
       return {
-        events: [{ agent: 'maya_core', action: 'quiz_start', data: { count: questions.length } }],
+        events: [{ agent: 'maya_core', action: 'quiz_start', data: { count: questions.length, retests: retestIds.filter(Boolean).length } }],
         messages: [
           { text: firstMessage, type: 'quiz_question', timestamp: new Date().toISOString() },
         ],

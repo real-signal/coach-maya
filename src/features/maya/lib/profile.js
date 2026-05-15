@@ -34,6 +34,8 @@ const DEFAULT_PROFILE = {
   wakeWordEnabled: false,      // "hey maya" always-listen
   presenceDetectionEnabled: false, // camera-based "walked in" greeting (opt-in)
   aiModel: 'claude-sonnet-4-5',    // 'claude-sonnet-4-5' (fast) | 'claude-opus-4-5' (deeper)
+  toughMode: false,                // raise rigor bar across all Maya responses
+  voiceBargeIn: true,              // speaking during Maya's TTS interrupts her
   avatarStyle: 'pixar',
   themeAccent: '#2DD4BF',
   // Personality model (learner-managed)

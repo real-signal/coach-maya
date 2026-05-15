@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { loadProfile, saveProfile, clearApiKeys } from './lib/profile'
 import { listAllVoices, waitForVoices, speak, cancelSpeech } from './lib/voice'
 import { getApiKey, setApiKey, clearAllApiKeys } from './lib/secrets'
+import { getTokens, spendToken, MAX_TOKENS } from './agents/streakFreeze'
 import VoiceStatus from './components/VoiceStatus'
 
 const C = {
@@ -175,6 +176,12 @@ export default function MayaProfile() {
           </Row>
           <Row label="Greet me when I walk in (camera)">
             <Toggle on={profile.presenceDetectionEnabled} onChange={v => update({ presenceDetectionEnabled: v })} />
+          </Row>
+          <Row label="Interrupt Maya by speaking (barge-in)">
+            <Toggle on={profile.voiceBargeIn !== false} onChange={v => update({ voiceBargeIn: v })} />
+          </Row>
+          <Row label="Tough mode — Maya pushes harder">
+            <Toggle on={profile.toughMode} onChange={v => update({ toughMode: v })} />
           </Row>
 
           <Row label="System voice (free)">

@@ -93,6 +93,25 @@ The kid asked for questions / a quiz / a real explanation. Drop the 1-3 sentence
 - After the list, drop ONE Maya-voice line at the end (sarcastic encouragement, ≤1 sentence) to stay in character.
 - Still no lecturing, no "you should", no warm-up phrases.`
 
+// Tough mode raises the rigor bar across ALL message types. Reads the profile
+// flag at message-generation time so toggling propagates immediately.
+const TOUGH_MODE_ADDENDUM = `
+
+TOUGH MODE — ACTIVE:
+The kid opted into harder coaching. Push back harder.
+- Refuse hand-waving. If he uses jargon without explaining ("entropy", "derivative", "topspin"), demand the actual mechanism.
+- Lower the celebration threshold. Don't praise mediocrity. "Decent" is not "great".
+- Call out lazy shortcuts immediately ("you guessed", "you skimmed", "that's surface").
+- When right, acknowledge briefly and raise the bar to the NEXT level of complexity.
+- Still Maya — still funny, still sharp — but elite coach mode, not buddy mode.`
+
+function isToughMode() {
+  try {
+    const p = JSON.parse(localStorage.getItem('maya_profile') || '{}')
+    return !!p.toughMode
+  } catch { return false }
+}
+
 // ─── Get kid's name from profile ───
 function getKidName() {
   try {
@@ -205,9 +224,10 @@ async function generateMessage(type, context, personalityContext = '', history =
   // Quiz turns and finale are short — they should sound like a real coach
   // mid-drill, not a lecture. Use the normal voice rules (1-3 sentences).
   const teaching = isLongForm ? TEACHING_MODE_ADDENDUM : ''
+  const tough = isToughMode() ? TOUGH_MODE_ADDENDUM : ''
   const systemPrompt = MAYA_SYSTEM_PROMPT.replace(
     '{personality_context}',
-    `${personalityContext}\n\n${adaptive}${teaching}`
+    `${personalityContext}\n\n${adaptive}${teaching}${tough}`
   )
   const userPrompt = buildPrompt(type, context)
   const maxTokens = isLongForm ? 1500 : 250
