@@ -31,6 +31,18 @@ function saveLog(arr) {
 
 function todayStr() { return new Date().toISOString().slice(0, 10) }
 
+// Deterministic per-day jitter for the recommender — same kid + same day
+// always sees the same pick. Hash courseId × date → small offset.
+function seededJitter(seedStr) {
+  let h = 2166136261
+  for (let i = 0; i < seedStr.length; i++) {
+    h ^= seedStr.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  // Map to [0, 5)
+  return ((h >>> 0) % 1000) / 200
+}
+
 /**
  * Log a Brilliant session.
  * @param {object} s — { courseId, minutes, clicked, stuck, rating }
@@ -163,8 +175,16 @@ function recommendForToday({ profile = {}, comps = [] } = {}) {
     // Difficulty fit
     score -= Math.abs(c.difficulty - targetDifficulty) * 8
 
-    // Small jitter so picks vary day to day
-    score += Math.random() * 5
+    // Deterministic per-day jitter so picks vary day to day but stay stable
+    // within a day (no flicker on re-render, no re-roll spam by the kid).
+    score += seededJitter(`${c.id}|${today}`)
+
+    // Penalize same-difficulty repeats more strongly than before
+    const lastFew = log.slice(-3)
+    if (lastFew.some(e => {
+      const prev = catalog.find(x => x.id === e.courseId)
+      return prev?.difficulty === c.difficulty
+    })) score -= 10
 
     return { ...c, _score: score, _reasons: reasons }
   })
@@ -176,6 +196,40 @@ function recommendForToday({ profile = {}, comps = [] } = {}) {
     : `variety pick · ${top.minutes} min`
 
   return { course: top, reason }
+}
+
+/**
+ * Anti-gaming pass. Looks for impossible patterns. Never punishes —
+ * just returns flags the UI can render so the kid sees Maya noticed.
+ * Mirrors antiGaming.js philosophy: observe, don't punish.
+ */
+function getSuspicionFlags() {
+  const log = loadLog()
+  const flags = []
+  const today = todayStr()
+  const todays = log.filter(e => e.date === today)
+
+  const todayMin = todays.reduce((s, e) => s + (e.minutes || 0), 0)
+  if (todayMin > 180) {
+    flags.push({ level: 'high', text: `${todayMin} min logged today — that's more than 3 hours. Sure?` })
+  }
+  if (todays.length >= 5) {
+    flags.push({ level: 'med', text: `${todays.length} sessions logged today — quality over quantity.` })
+  }
+
+  // Three+ back-to-back >60 min entries in a single day = suspicious
+  const big = todays.filter(e => (e.minutes || 0) >= 60)
+  if (big.length >= 3) {
+    flags.push({ level: 'med', text: `${big.length} sessions of 60+ min today — Maya's skeptical.` })
+  }
+
+  // Every recent log has no clicked/stuck text = drive-by logging
+  const recent = log.slice(-7)
+  if (recent.length >= 5 && recent.every(e => !e.clicked && !e.stuck)) {
+    flags.push({ level: 'low', text: 'No notes on your last 5+ sessions. Where did your brain go?' })
+  }
+
+  return flags
 }
 
 function deleteSession(at) {
@@ -199,6 +253,7 @@ export {
   setReportedStreak,
   getWeeklyStats,
   recommendForToday,
+  getSuspicionFlags,
   deleteSession,
   clearLog,
   getCourseById,

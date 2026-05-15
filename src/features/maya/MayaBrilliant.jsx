@@ -24,9 +24,24 @@ import {
   setReportedStreak,
   getWeeklyStats,
   recommendForToday,
+  getSuspicionFlags,
   deleteSession,
   getCourseById,
 } from './agents/brilliantLog'
+
+const WALK_MAX = 300
+
+// Detect obvious copy-paste of a problem (LaTeX, multi-line, etc.).
+// Goal isn't to block — it's to nudge the kid to rephrase.
+function looksPasted(s) {
+  if (!s) return false
+  const t = String(s)
+  if (t.length > 250) return true
+  if (/\\[a-z]+\{/i.test(t)) return true                      // LaTeX commands
+  if ((t.match(/\n/g) || []).length >= 3) return true         // multi-line block
+  if (/[∫∑∏√≤≥≠∞±∂π]/.test(t)) return true                    // math glyphs
+  return false
+}
 
 const C = {
   bg: '#0a0a14', surface: 'rgba(255,255,255,0.04)', surfaceLight: 'rgba(255,255,255,0.07)',
@@ -54,6 +69,7 @@ export default function MayaBrilliant() {
   const [weekStats, setWeekStats] = useState(getWeeklyStats())
   const [internalStreak, setInternalStreak] = useState(getInternalStreak())
   const [reportedStreak, setReportedStreakState] = useState(getReportedStreak())
+  const [flags, setFlags] = useState(getSuspicionFlags())
 
   // Log form state
   const [logCourseId, setLogCourseId] = useState('')
@@ -81,6 +97,7 @@ export default function MayaBrilliant() {
     setWeekStats(getWeeklyStats())
     setInternalStreak(getInternalStreak())
     setReportedStreakState(getReportedStreak())
+    setFlags(getSuspicionFlags())
   }
 
   const submitLog = () => {
@@ -114,6 +131,10 @@ export default function MayaBrilliant() {
     setWalkResp('')
     const problem = walkProblem.trim()
     if (problem.length < 8) { setWalkErr('Describe the problem in your own words first.'); return }
+    if (looksPasted(problem)) {
+      setWalkErr('That looks pasted — rephrase it in your own words. Maya coaches your thinking, not the original problem.')
+      return
+    }
     const apiKey = getApiKey('anthropic')
     if (!apiKey) {
       setWalkResp(
@@ -195,6 +216,25 @@ export default function MayaBrilliant() {
             </p>
           )}
         </Section>
+
+        {/* Suspicion flags — observe, don't punish */}
+        {flags.length > 0 && (
+          <Section title="Maya's Watching">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {flags.map((f, i) => (
+                <div key={i} style={{
+                  padding: 10, borderRadius: 8,
+                  background: f.level === 'high' ? `${C.red}22` : `${C.amber}1a`,
+                  border: `1px solid ${f.level === 'high' ? C.red : C.amber}55`,
+                  fontSize: 11, lineHeight: 1.5,
+                  color: f.level === 'high' ? C.red : C.amber,
+                }}>
+                  {f.text}
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
 
         {/* Stats */}
         <Section title="This Week">
@@ -303,22 +343,27 @@ export default function MayaBrilliant() {
             Stuck on a problem? Describe it <strong style={{ color: C.text }}>in your own words</strong> — Maya coaches your thinking, not the problem itself.
           </p>
 
-          <Label>Problem (in your words)</Label>
+          <Label>Problem (in your words · {walkProblem.length}/{WALK_MAX})</Label>
           <textarea
             value={walkProblem}
-            onChange={(e) => setWalkProblem(e.target.value)}
+            onChange={(e) => setWalkProblem(e.target.value.slice(0, WALK_MAX))}
             placeholder="e.g. We're picking 3 marbles out of 10, what's the chance two are red…"
             style={{ ...inputStyle, minHeight: 70, resize: 'vertical', fontFamily: C.mono }}
-            maxLength={600}
+            maxLength={WALK_MAX}
           />
+          {looksPasted(walkProblem) && (
+            <div style={{ fontSize: 10, color: C.amber, marginTop: 4 }}>
+              Looks pasted — rephrase in your own words first.
+            </div>
+          )}
 
-          <Label style={{ marginTop: 12 }}>What you tried</Label>
+          <Label style={{ marginTop: 12 }}>What you tried · {walkTried.length}/{WALK_MAX}</Label>
           <textarea
             value={walkTried}
-            onChange={(e) => setWalkTried(e.target.value)}
+            onChange={(e) => setWalkTried(e.target.value.slice(0, WALK_MAX))}
             placeholder="e.g. I tried 3/10 × 2/9 but I think I missed cases"
             style={{ ...inputStyle, minHeight: 50, resize: 'vertical', fontFamily: C.mono }}
-            maxLength={600}
+            maxLength={WALK_MAX}
           />
 
           <button onClick={askMaya} disabled={walking} style={{ ...primaryBtn, marginTop: 14, opacity: walking ? 0.6 : 1 }}>
