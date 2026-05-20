@@ -16,7 +16,7 @@ async function generateStudyGuide(transcript, subject) {
   const apiKey = getApiKey('anthropic')
 
   if (!apiKey) {
-    return heuristicGuide(transcript, subject)
+    return { ...heuristicGuide(transcript, subject), _source: 'heuristic', _offline: true }
   }
 
   try {
@@ -54,10 +54,16 @@ async function generateStudyGuide(transcript, subject) {
     if (!res.ok) throw new Error(`API ${res.status}`)
     const data = await res.json()
     const text = data.content[0].text
-    return JSON.parse(text.replace(/```json|```/g, '').trim())
+    const parsed = JSON.parse(text.replace(/```json|```/g, '').trim())
+    return { ...parsed, _source: 'claude' }
   } catch (e) {
+    // Surface to global error trail so the UI can show a "running in offline
+    // mode" hint instead of silently degrading.
+    if (typeof window !== 'undefined') {
+      window.__mayaLastError = { label: 'studyGuide', msg: e?.message || String(e), ts: Date.now() }
+    }
     console.warn('Claude study guide failed:', e)
-    return heuristicGuide(transcript, subject)
+    return { ...heuristicGuide(transcript, subject), _source: 'heuristic', _offline: true }
   }
 }
 

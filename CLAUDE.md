@@ -71,9 +71,9 @@ src/
     └── lib/                           # voice, sfx, profile, moods, etc.
 ```
 
-### Routes (45)
+### Routes (48)
 
-Dashboard, Schedule, Profile, Parent (PIN-gated), Lesson, Lessons, Memory, Ritual, Goals, Help, Shop, Insights, Journal, Story, Focus, News, Homework, Tennis, Reading, Flashcards, Screen Time, Piano, Records, Vocab, Explain, Timer, Habits, Math Drill, Typing, Intel, Sleep, Water, Workout, Moods, Weekly, Login, Signup, Children, Competitions, Prep Plans, Analytics, Trophies, Onboarding
+Dashboard, Schedule, Profile, Parent (PIN-gated), Lesson, Lessons, Memory, Ritual, Goals, Help, Shop, Insights, Journal, Story, Focus, News, Homework, Tennis, Reading, Flashcards, Screen Time, Piano, Records, Vocab, Explain, Timer, Habits, Math Drill, Typing, Intel, Sleep, Water, Workout, Moods, Weekly, Login, Signup, Children, Competitions, Prep Plans, Analytics, Trophies, Onboarding, Briefing, Notebook, Notes
 
 ## Design Patterns
 

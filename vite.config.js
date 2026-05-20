@@ -27,6 +27,24 @@ export default defineConfig({
   optimizeDeps: {
     include: PRE_BUNDLE,
   },
+  build: {
+    // Push the 500KB-chunk warning up so the build log isn't spammy while we
+    // keep an eye on real growth; split common deps into their own chunks so
+    // the initial dashboard load doesn't pull every route's transitive deps.
+    chunkSizeWarningLimit: 800,
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          if (!id.includes('node_modules')) return undefined
+          if (id.includes('three') || id.includes('@react-three')) return 'three'
+          if (id.includes('@supabase')) return 'supabase'
+          if (id.includes('react-router')) return 'router'
+          if (id.includes('react-dom') || id.match(/[/\\]react[/\\]/)) return 'react'
+          return 'vendor'
+        },
+      },
+    },
+  },
   server: {
     // Fail loudly if 5173 is taken instead of silently moving to 5174 —
     // because moving ports leaves HMR pointed at the wrong place (we saw

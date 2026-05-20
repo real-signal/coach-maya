@@ -262,19 +262,34 @@ function MayaProvider({ children }) {
   }, [state.messages, state.profile])
 
   // ─── Actions ───
+  // Helper: surface async-handler failures so a network/Claude blip doesn't
+  // leave the UI in an inconsistent state without telling the user.
+  const noteHandlerError = useCallback((label, err) => {
+    if (typeof window !== 'undefined') {
+      window.__mayaLastError = { label, msg: err?.message || String(err), ts: Date.now() }
+    }
+    dispatch({ type: 'ADD_MESSAGE', payload: {
+      text: "Hit a snag syncing that. Your action saved, but stats might be a tick off. Try again in a sec.",
+      type: 'maya', timestamp: new Date().toISOString(), tag: 'system_warning',
+    }})
+  }, [])
+
   const completeTask = useCallback(async (taskId) => {
     const task = state.tasks.find(t => t.id === taskId)
     if (!task || task.completed) return
     sfx.taskComplete()
     dispatch({ type: 'COMPLETE_TASK', payload: { id: taskId } })
 
-    const result = await handleTaskComplete(task, {
-      gamification: state.gamification,
-      unlockedAchievements: state.unlockedAchievements,
-      lastActivityTime: state.lastActivityTime,
-      dayLog: state.dayLog,
-      tasks: state.tasks,
-    }, state.personalityContext)
+    let result
+    try {
+      result = await handleTaskComplete(task, {
+        gamification: state.gamification,
+        unlockedAchievements: state.unlockedAchievements,
+        lastActivityTime: state.lastActivityTime,
+        dayLog: state.dayLog,
+        tasks: state.tasks,
+      }, state.personalityContext)
+    } catch (e) { noteHandlerError('completeTask', e); return }
 
     dispatch({ type: 'SET_STATE', payload: {
       gamification: result.state.gamification,
@@ -303,10 +318,13 @@ function MayaProvider({ children }) {
     if (!task) return
     dispatch({ type: 'SKIP_TASK', payload: { id: taskId } })
 
-    const result = await handleTaskSkip(task, {
-      gamification: state.gamification,
-      dayLog: state.dayLog,
-    }, state.personalityContext)
+    let result
+    try {
+      result = await handleTaskSkip(task, {
+        gamification: state.gamification,
+        dayLog: state.dayLog,
+      }, state.personalityContext)
+    } catch (e) { noteHandlerError('skipTask', e); return }
 
     dispatch({ type: 'SET_STATE', payload: { gamification: result.state.gamification, dayLog: result.state.dayLog } })
     if (result.messages.length > 0) {
@@ -318,7 +336,10 @@ function MayaProvider({ children }) {
 
   const sendMessage = useCallback(async (text) => {
     dispatch({ type: 'ADD_MESSAGE', payload: { text, type: 'user', timestamp: new Date().toISOString() } })
-    const result = await handleUserChat(text, state, state.personalityContext)
+    let result
+    try {
+      result = await handleUserChat(text, state, state.personalityContext)
+    } catch (e) { noteHandlerError('sendMessage', e); return }
     if (result.messages.length > 0) {
       dispatch({ type: 'ADD_MESSAGES', payload: result.messages })
     }
@@ -327,7 +348,10 @@ function MayaProvider({ children }) {
   }, [state])
 
   const setMood = useCallback(async (mood) => {
-    const result = await handleMoodCheck(mood, state)
+    let result
+    try {
+      result = await handleMoodCheck(mood, state)
+    } catch (e) { noteHandlerError('setMood', e); return }
     dispatch({ type: 'SET_STATE', payload: {
       gamification: result.state.gamification,
       todayMood: result.state.todayMood,
@@ -340,7 +364,10 @@ function MayaProvider({ children }) {
   }, [state])
 
   const submitReflection = useCallback(async (text) => {
-    const result = await handleReflection(text, state, state.personalityContext)
+    let result
+    try {
+      result = await handleReflection(text, state, state.personalityContext)
+    } catch (e) { noteHandlerError('submitReflection', e); return }
     dispatch({ type: 'SET_STATE', payload: {
       gamification: result.state.gamification,
       dayLog: result.state.dayLog,
