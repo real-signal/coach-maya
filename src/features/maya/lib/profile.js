@@ -3,6 +3,8 @@
  * The personality learner adds to this over time.
  */
 
+import { focusesForToday, adherenceLastNDays, getTrack } from './compassTracks'
+
 const PROFILE_KEY = 'maya_profile'
 const PROFILE_VERSION = 3
 
@@ -190,6 +192,28 @@ function buildPersonalityContext(profile) {
       const pct = Math.round((done / (done + skipped)) * 100)
       lines.push(`Last 7 days: ${done} completed, ${skipped} skipped (${pct}% finish rate).`)
     }
+  }
+
+  // ── Parent Compass — top-priority directive layer ──
+  // Maya should know that the parent has set explicit goals so she can
+  // weave references like "your mum wants 5 AMC problems today" naturally.
+  // Kept tight so prompts don't bloat.
+  if (profile.parentCompass && profile.parentCompass.track) {
+    const c = profile.parentCompass
+    const track = getTrack(c.track)
+    const trackLabel = c.track === 'custom' && c.customLabel ? c.customLabel : (track?.label || c.track)
+    const compassBits = [`Parent's compass (priority above normal day): ${trackLabel}.`]
+    if (c.northStar) compassBits.push(`This week's north star (set by parent): "${c.northStar}".`)
+    const todayFocuses = focusesForToday(c)
+    if (todayFocuses.length > 0) {
+      const focusStrs = todayFocuses.map(f => `${f.label} (${f.minutes}m)`)
+      compassBits.push(`Today's parent-set focuses: ${focusStrs.join('; ')}.`)
+    }
+    const adh = adherenceLastNDays(c, 7)
+    if (adh.pct != null && adh.totalScheduled >= 5) {
+      compassBits.push(`Compass adherence last 7d: ${adh.pct}% (${adh.totalCompleted}/${adh.totalScheduled}).`)
+    }
+    lines.push(compassBits.join(' '))
   }
 
   if (profile.insideJokes?.length) lines.push(`Inside jokes you've earned: ${profile.insideJokes.join(' | ')}.`)
