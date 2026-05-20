@@ -63,8 +63,8 @@ export default function MayaBriefing() {
   const compassFocuses = useMemo(() => compassActive ? focusesForToday(compass) : [], [compass, compassActive, compassTick])
   const compassLog = useMemo(() => compassActive ? loadCompassLog() : {}, [compassActive, compassTick])
   const todayKey = todayDateKey()
-  const compassDoneIds = new Set((compassLog?.[todayKey] || []))
-  const compassAllDone = compassFocuses.length > 0 && compassFocuses.every(f => compassDoneIds.has(f.id))
+  const compassDone = compassLog?.[todayKey] || {}
+  const compassAllDone = compassFocuses.length > 0 && compassFocuses.every(f => !!compassDone[f.id])
   const compassAdh = useMemo(() => compassActive ? adherenceLastNDays(compass, 7) : null, [compass, compassActive, compassTick])
 
   // ─── Vitals ───
@@ -100,7 +100,7 @@ export default function MayaBriefing() {
     if (compassActive && compassFocuses.length > 0) {
       if (compassAllDone) parts.push("Compass cleared. That's the parent stack done.")
       else {
-        const remaining = compassFocuses.filter(f => !compassDoneIds.has(f.id))
+        const remaining = compassFocuses.filter(f => !compassDone[f.id])
         const labels = remaining.slice(0, 2).map(f => f.label).join(' + ')
         parts.push(`Parent compass today: ${labels}. Top of the stack.`)
       }
@@ -165,7 +165,7 @@ export default function MayaBriefing() {
               </div>
             )}
             {compassFocuses.map(f => {
-              const done = compassDoneIds.has(f.id)
+              const done = !!compassDone[f.id]
               return (
                 <div
                   key={f.id}
