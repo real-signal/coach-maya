@@ -7,6 +7,7 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMaya } from './context/MayaContext'
 import { loadMoods } from './lib/moods'
+import { focusesForToday, adherenceLastNDays, getTrack, loadCompassLog, toggleCompassFocus, todayDateKey } from './lib/compassTracks'
 
 const C = {
   bg: '#0a0a14', surface: 'rgba(255,255,255,0.04)', surfaceLight: 'rgba(255,255,255,0.07)',
@@ -52,6 +53,20 @@ export default function MayaBriefing() {
   const completedTasks = tasks.filter(t => t.completed).length
   const totalTasks = tasks.length
 
+  // ─── Parent compass ───
+  const [compassTick, setCompassTick] = useState(0)
+  const compass = maya.profile?.parentCompass
+  const compassActive = !!compass?.track
+  const compassTrackLabel = compassActive
+    ? (compass.track === 'custom' && compass.customLabel ? compass.customLabel : (getTrack(compass.track)?.label || compass.track))
+    : ''
+  const compassFocuses = useMemo(() => compassActive ? focusesForToday(compass) : [], [compass, compassActive, compassTick])
+  const compassLog = useMemo(() => compassActive ? loadCompassLog() : {}, [compassActive, compassTick])
+  const todayKey = todayDateKey()
+  const compassDoneIds = new Set((compassLog?.[todayKey] || []))
+  const compassAllDone = compassFocuses.length > 0 && compassFocuses.every(f => compassDoneIds.has(f.id))
+  const compassAdh = useMemo(() => compassActive ? adherenceLastNDays(compass, 7) : null, [compass, compassActive, compassTick])
+
   // ─── Vitals ───
   const sleepLogs = loadLS('maya_sleep') || []
   const lastSleep = sleepLogs.find(s => s.date === today || s.date === (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toISOString().slice(0, 10) })())
@@ -81,6 +96,16 @@ export default function MayaBriefing() {
     if (todayPrepStatus.length > 0 && !prepsStarted && hour >= 10) parts.push("Prep plans untouched today. Clock's ticking.")
     else if (allPrepsDone) parts.push("All prep targets hit. That's the standard.")
 
+    // Parent compass — directive priority
+    if (compassActive && compassFocuses.length > 0) {
+      if (compassAllDone) parts.push("Compass cleared. That's the parent stack done.")
+      else {
+        const remaining = compassFocuses.filter(f => !compassDoneIds.has(f.id))
+        const labels = remaining.slice(0, 2).map(f => f.label).join(' + ')
+        parts.push(`Parent compass today: ${labels}. Top of the stack.`)
+      }
+    }
+
     // Tasks
     if (completedTasks === totalTasks && totalTasks > 0) parts.push("Task list is clean. Elite.")
     else if (completedTasks > 0) parts.push(`${completedTasks}/${totalTasks} tasks done.`)
@@ -89,7 +114,7 @@ export default function MayaBriefing() {
     if (lastSleep && lastSleep.hours < 7) parts.push(`${lastSleep.hours}h sleep. Your brain's running on fumes.`)
 
     return parts.join(' ')
-  }, [name, hour, streak, daysUntilNext, todayPrepStatus, completedTasks, totalTasks, lastSleep])
+  }, [name, hour, streak, daysUntilNext, todayPrepStatus, completedTasks, totalTasks, lastSleep, compassActive, compassFocuses, compassAllDone, compassTick])
 
   const catIcons = { math: '🧮', piano: '🎹', tennis: '🎾', coding: '💻', speech: '🎤', other: '🏅' }
 
@@ -113,6 +138,65 @@ export default function MayaBriefing() {
           </div>
           <div style={{ fontSize: 13, lineHeight: 1.6 }}>{briefing}</div>
         </div>
+
+        {/* Parent compass — directive layer */}
+        {compassActive && compassFocuses.length > 0 && (
+          <div style={{
+            padding: 14, background: C.glass, backdropFilter: C.blur, WebkitBackdropFilter: C.blur,
+            borderRadius: 14, border: `1px solid ${C.glassBorder}`, marginBottom: 16,
+            borderLeft: `3px solid ${C.gold}`,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+              <div style={{ fontSize: 9, color: C.gold, textTransform: 'uppercase', letterSpacing: 1 }}>
+                From your parent · {compassTrackLabel}
+              </div>
+              {compassAdh && compassAdh.totalScheduled >= 3 && compassAdh.pct != null && (
+                <div style={{
+                  fontSize: 10, fontWeight: 700,
+                  color: compassAdh.pct >= 80 ? C.green : compassAdh.pct >= 60 ? C.amber : C.red,
+                }}>
+                  7d · {compassAdh.pct}%
+                </div>
+              )}
+            </div>
+            {compass.northStar && (
+              <div style={{ fontSize: 11, color: C.muted, marginBottom: 10, lineHeight: 1.4 }}>
+                ★ {compass.northStar}
+              </div>
+            )}
+            {compassFocuses.map(f => {
+              const done = compassDoneIds.has(f.id)
+              return (
+                <div
+                  key={f.id}
+                  onClick={() => { toggleCompassFocus(f.id); setCompassTick(t => t + 1) }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0',
+                    borderBottom: `1px solid rgba(255,255,255,0.04)`,
+                    cursor: 'pointer', opacity: done ? 0.55 : 1,
+                  }}
+                >
+                  <div style={{
+                    width: 18, height: 18, borderRadius: 6,
+                    border: `1.5px solid ${done ? C.green : C.muted}`,
+                    background: done ? C.green : 'transparent',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 11, color: '#0a0a14', flexShrink: 0,
+                  }}>{done ? '✓' : ''}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, textDecoration: done ? 'line-through' : 'none' }}>{f.label}</div>
+                    <div style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>{f.minutes}m · {f.type}</div>
+                  </div>
+                </div>
+              )
+            })}
+            {compassAllDone && (
+              <div style={{ fontSize: 11, color: C.green, marginTop: 8, fontWeight: 600 }}>
+                ✓ Compass cleared today.
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Next competition */}
         {nextComp && (
