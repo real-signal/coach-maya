@@ -100,6 +100,28 @@ function processTaskComplete(state, taskType) {
   }
 }
 
+// ─── Process Parent Compass Focus Completion ───
+// Parent compass focuses live separately from regular tasks (different log,
+// different lifecycle). Award a flat "parent priority" bonus so checking
+// them off is visibly rewarded, but DO NOT touch combo or tasksCompleted —
+// those belong to the schedule. This keeps the two systems independent and
+// prevents reward-hacking when a focus overlaps with a daily task.
+const COMPASS_FOCUS_XP = 15
+
+function processCompassFocusComplete(state) {
+  const earned = COMPASS_FOCUS_XP
+  const totalXP = state.totalXP + earned
+  const level = getLevel(totalXP)
+  return {
+    ...state,
+    totalXP,
+    level,
+    lastTaskXP: earned,
+    lastTaskBase: earned,
+    lastTaskBonus: 0,
+  }
+}
+
 // ─── Process Task Skip / Miss ───
 function processTaskSkip(state) {
   return {
@@ -164,7 +186,9 @@ export {
   getLevel,
   getDayGrade,
   processTaskComplete,
+  processCompassFocusComplete,
   processTaskSkip,
+  COMPASS_FOCUS_XP,
   checkAchievements,
   createInitialState,
 }

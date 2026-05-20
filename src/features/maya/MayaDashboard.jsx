@@ -523,7 +523,7 @@ export default function MayaDashboard({ onOpenSearch }) {
 // ─── Parent Compass card — surfaces today's parent-set focuses ───
 // Lives above today's tasks. Adherence is tracked in maya_compass_log
 // (separate from XP/gamification so the compass doesn't game itself).
-function CompassCard({ profile }) {
+function CompassCard({ profile, completeCompassFocus }) {
   const compass = profile?.parentCompass
   const todays = focusesForToday(compass)
   const [, force] = useState(0)
@@ -536,8 +536,9 @@ function CompassCard({ profile }) {
     ? compass.customLabel
     : (track?.label || 'Compass')
 
-  const toggle = (focusId) => {
-    toggleCompassFocus(focusId)
+  const toggle = (focusId, focusLabel) => {
+    if (completeCompassFocus) completeCompassFocus(focusId, focusLabel)
+    else toggleCompassFocus(focusId)
     force(x => x + 1)
   }
 
@@ -563,7 +564,7 @@ function CompassCard({ profile }) {
       {todays.map(f => {
         const isDone = !!today[f.id]
         return (
-          <div key={f.id} onClick={() => toggle(f.id)} style={{
+          <div key={f.id} onClick={() => toggle(f.id, f.label)} style={{
             display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
             padding: '8px 0', borderTop: `1px dashed ${C.glassBorder}`,
             opacity: isDone ? 0.5 : 1, transition: 'opacity 0.2s ease',
@@ -591,10 +592,10 @@ function CompassCard({ profile }) {
 
 // ─── Tasks Tab ───
 function TasksTab({ maya, onSkipRequest }) {
-  const { tasks, completeTask, profile } = maya
+  const { tasks, completeTask, profile, completeCompassFocus } = maya
   return (
     <div>
-      <CompassCard profile={profile} />
+      <CompassCard profile={profile} completeCompassFocus={completeCompassFocus} />
       <div style={{ fontSize: 10, color: C.muted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
         Today's Tasks
       </div>

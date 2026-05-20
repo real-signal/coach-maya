@@ -169,7 +169,11 @@ export default function MayaBriefing() {
               return (
                 <div
                   key={f.id}
-                  onClick={() => { toggleCompassFocus(f.id); setCompassTick(t => t + 1) }}
+                  onClick={() => {
+                    if (maya.completeCompassFocus) maya.completeCompassFocus(f.id, f.label)
+                    else toggleCompassFocus(f.id)
+                    setCompassTick(t => t + 1)
+                  }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0',
                     borderBottom: `1px solid rgba(255,255,255,0.04)`,

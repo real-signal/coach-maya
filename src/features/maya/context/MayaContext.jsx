@@ -1,5 +1,6 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, useRef, useState } from 'react'
-import { createInitialState } from '../agents/gamification'
+import { createInitialState, processCompassFocusComplete, COMPASS_FOCUS_XP } from '../agents/gamification'
+import { toggleCompassFocus, loadCompassLog, todayDateKey, focusesForToday } from '../lib/compassTracks'
 import { getComboTimeLeft } from '../agents/scheduler'
 import { evaluateResponse, createSpotCheckRecord } from '../agents/antiGaming'
 import { recordEvent } from '../agents/personalityLearner'
@@ -313,6 +314,40 @@ function MayaProvider({ children }) {
     recordTaskOutcome(task.type, true)
   }, [state])
 
+  // Parent compass focus check-off. Awards a flat parent-priority XP bonus
+  // when going from unchecked → checked (no XP returned on un-checking).
+  // Compass log itself is owned by lib/compassTracks (separate storage), so
+  // this only mutates gamification + dayLog.
+  const completeCompassFocus = useCallback((focusId, focusLabel) => {
+    const todayKey = todayDateKey()
+    const before = !!(loadCompassLog()?.[todayKey]?.[focusId])
+    toggleCompassFocus(focusId)
+    const after = !!(loadCompassLog()?.[todayKey]?.[focusId])
+    if (after && !before) {
+      sfx.taskComplete()
+      const nextGam = processCompassFocusComplete(state.gamification)
+      const dayLogEntry = {
+        type: 'compass_complete',
+        task: focusLabel || 'Compass focus',
+        focusId,
+        xp: COMPASS_FOCUS_XP,
+        time: new Date().toISOString(),
+      }
+      dispatch({ type: 'SET_STATE', payload: {
+        gamification: nextGam,
+        dayLog: [...(state.dayLog || []), dayLogEntry],
+        lastActivityTime: new Date().toISOString(),
+      }})
+    } else if (!after && before) {
+      // Uncheck — keep XP (don't claw back; the kid earned the moment).
+      // Just drop the dayLog entry to keep the timeline honest.
+      dispatch({ type: 'SET_STATE', payload: {
+        dayLog: (state.dayLog || []).filter(e => !(e.type === 'compass_complete' && e.focusId === focusId && e.time?.slice(0,10) === todayKey)),
+      }})
+    }
+    return after
+  }, [state])
+
   const skipTask = useCallback(async (taskId) => {
     const task = state.tasks.find(t => t.id === taskId)
     if (!task) return
@@ -618,6 +653,7 @@ function MayaProvider({ children }) {
     setLiveLesson,
     comboTimeLeft,
     completeTask,
+    completeCompassFocus,
     skipTask,
     sendMessage,
     setMood,
