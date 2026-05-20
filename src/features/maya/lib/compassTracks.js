@@ -171,6 +171,74 @@ export function toggleCompassFocus(focusId) {
  * Compute compass adherence for the last N days.
  * Returns { totalScheduled, totalCompleted, pct }.
  */
+/**
+ * Per-day breakdown for the last N days (oldest → newest).
+ * Each entry: { dateKey, scheduled, completed, pct (0..100 or null), label }
+ * Useful for sparkline charts in the kid's insights.
+ */
+export function adherenceByDay(parentCompass, n = 14) {
+  if (!parentCompass || !Array.isArray(parentCompass.focuses) || parentCompass.focuses.length === 0) {
+    return []
+  }
+  const log = loadCompassLog()
+  const out = []
+  const now = new Date()
+  const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(now)
+    d.setDate(now.getDate() - i)
+    const dow = d.getDay()
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const dayLog = log[key] || {}
+    let scheduled = 0, completed = 0
+    for (const f of parentCompass.focuses) {
+      const active = !Array.isArray(f.days) || f.days.length === 0 || f.days.includes(dow)
+      if (active) {
+        scheduled += 1
+        if (dayLog[f.id]) completed += 1
+      }
+    }
+    out.push({
+      dateKey: key,
+      scheduled,
+      completed,
+      pct: scheduled > 0 ? Math.round((completed / scheduled) * 100) : null,
+      label: dayNames[dow],
+    })
+  }
+  return out
+}
+
+/**
+ * Streak of consecutive days at 100% compass adherence ending today.
+ * Only counts days that had at least 1 scheduled focus. Returns 0 if today
+ * is incomplete or no focuses are configured.
+ */
+export function adherenceStreak(parentCompass, maxLookback = 60) {
+  if (!parentCompass || !Array.isArray(parentCompass.focuses) || parentCompass.focuses.length === 0) {
+    return 0
+  }
+  const log = loadCompassLog()
+  let streak = 0
+  const now = new Date()
+  for (let i = 0; i < maxLookback; i++) {
+    const d = new Date(now)
+    d.setDate(now.getDate() - i)
+    const dow = d.getDay()
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const dayLog = log[key] || {}
+    let scheduled = 0, completed = 0
+    for (const f of parentCompass.focuses) {
+      const active = !Array.isArray(f.days) || f.days.length === 0 || f.days.includes(dow)
+      if (active) { scheduled += 1; if (dayLog[f.id]) completed += 1 }
+    }
+    if (scheduled === 0) continue // rest day — doesn't break the streak
+    if (completed === scheduled) streak += 1
+    else break
+  }
+  return streak
+}
+
 export function adherenceLastNDays(parentCompass, n = 7) {
   if (!parentCompass || !Array.isArray(parentCompass.focuses) || parentCompass.focuses.length === 0) {
     return { totalScheduled: 0, totalCompleted: 0, pct: null }

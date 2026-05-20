@@ -1,5 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { weeklyInsights } from './agents/insights'
+import { loadProfile } from './lib/profile'
+import { adherenceByDay, adherenceLastNDays, adherenceStreak, getTrack } from './lib/compassTracks'
 
 const C = {
   bg: '#0a0a14', surface: 'rgba(255,255,255,0.04)', surfaceLight: 'rgba(255,255,255,0.07)',
@@ -14,6 +16,15 @@ export default function MayaInsights() {
   const navigate = useNavigate()
   const data = weeklyInsights()
   const maxXP = Math.max(...data.days.map(d => d.xp), 10)
+  const profile = loadProfile()
+  const compass = profile?.parentCompass
+  const compassActive = !!compass?.track
+  const compassTrackLabel = compassActive
+    ? (compass.track === 'custom' && compass.customLabel ? compass.customLabel : (getTrack(compass.track)?.label || compass.track))
+    : ''
+  const compassDays = compassActive ? adherenceByDay(compass, 14) : []
+  const compass7d = compassActive ? adherenceLastNDays(compass, 7) : null
+  const compassStreakDays = compassActive ? adherenceStreak(compass) : 0
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: C.mono, paddingBottom: 80 }}>
@@ -49,6 +60,63 @@ export default function MayaInsights() {
             })}
           </div>
         </Card>
+
+        {/* Parent compass */}
+        {compassActive && compassDays.length > 0 && (
+          <Card title={`Compass · ${compassTrackLabel}`} color={C.gold}>
+            {compass.northStar && (
+              <div style={{ fontSize: 11, color: C.muted, fontStyle: 'italic', marginBottom: 10, lineHeight: 1.4 }}>
+                ★ {compass.northStar}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
+              <div>
+                <div style={{ fontSize: 9, color: C.muted, textTransform: 'uppercase', letterSpacing: 1 }}>7-day</div>
+                <div style={{
+                  fontSize: 22, fontWeight: 700, fontFamily: C.display,
+                  color: compass7d?.pct >= 80 ? C.green : compass7d?.pct >= 60 ? C.amber : C.red,
+                }}>
+                  {compass7d?.pct != null ? `${compass7d.pct}%` : '—'}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 9, color: C.muted, textTransform: 'uppercase', letterSpacing: 1 }}>Perfect streak</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: C.gold, fontFamily: C.display }}>
+                  {compassStreakDays}d
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 9, color: C.muted, textTransform: 'uppercase', letterSpacing: 1 }}>Done</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: C.teal, fontFamily: C.display }}>
+                  {compass7d?.totalCompleted || 0}/{compass7d?.totalScheduled || 0}
+                </div>
+              </div>
+            </div>
+            {/* 14-day sparkline */}
+            <div style={{ display: 'flex', alignItems: 'flex-end', height: 60, gap: 4, marginTop: 8 }}>
+              {compassDays.map((d, i) => {
+                const isToday = i === compassDays.length - 1
+                const h = d.pct == null ? 8 : Math.max(d.pct, 6)
+                const color = d.pct == null
+                  ? C.dim
+                  : d.pct === 100 ? C.green
+                  : d.pct >= 60 ? C.amber
+                  : C.red
+                return (
+                  <div key={d.dateKey} title={`${d.dateKey}: ${d.completed}/${d.scheduled}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                    <div style={{
+                      width: '100%', height: `${h}%`, minHeight: 3,
+                      background: color, borderRadius: 3,
+                      opacity: d.scheduled === 0 ? 0.25 : 1,
+                      border: isToday ? `1px solid ${C.text}` : 'none',
+                    }} />
+                    <div style={{ fontSize: 8, color: isToday ? C.text : C.muted }}>{d.label}</div>
+                  </div>
+                )
+              })}
+            </div>
+          </Card>
+        )}
 
         {/* Memory growth */}
         <Card title="Memory bank">
