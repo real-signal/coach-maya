@@ -6,6 +6,7 @@
 
 import { dailySummary } from './personalityLearner'
 import { loadProfile } from '../lib/profile'
+import { adherenceLastNDays, getTrack, focusesForToday } from '../lib/compassTracks'
 
 function generateDailyReport({ dayLog, gamification, tasks, mood, reflection, spotChecks }) {
   const summary = dailySummary(dayLog)
@@ -44,6 +45,24 @@ function generateDailyReport({ dayLog, gamification, tasks, mood, reflection, sp
     return `Stay the course — consistency over intensity.`
   })()
 
+  // ── Parent compass — today's directives + adherence ──
+  const compass = (() => {
+    if (!profile.parentCompass?.track) return null
+    const c = profile.parentCompass
+    const track = getTrack(c.track)
+    const trackLabel = c.track === 'custom' && c.customLabel ? c.customLabel : (track?.label || c.track)
+    const todayFocuses = focusesForToday(c)
+    const adh = adherenceLastNDays(c, 7)
+    return {
+      track: trackLabel,
+      northStar: c.northStar || '',
+      todayFocuses: todayFocuses.map(f => ({ id: f.id, label: f.label, minutes: f.minutes })),
+      adherence7d: adh.pct,
+      completed7d: adh.totalCompleted,
+      scheduled7d: adh.totalScheduled,
+    }
+  })()
+
   return {
     date: new Date().toISOString().slice(0, 10),
     childName,
@@ -65,6 +84,7 @@ function generateDailyReport({ dayLog, gamification, tasks, mood, reflection, sp
     mvpMoment,
     concern,
     recommendation,
+    compass,
     timeline: dayLog.map(e => ({
       time: e.time,
       type: e.type,
@@ -121,8 +141,31 @@ function generateWeeklyDigest(history) {
     flags.push(`Streak broke (was ${profile.longestStreak})`)
   }
 
+  // ── Parent compass adherence ──
+  let compassBlock = null
+  if (profile.parentCompass?.track) {
+    const c = profile.parentCompass
+    const track = getTrack(c.track)
+    const trackLabel = c.track === 'custom' && c.customLabel ? c.customLabel : (track?.label || c.track)
+    const adh = adherenceLastNDays(c, 7)
+    compassBlock = {
+      track: trackLabel,
+      northStar: c.northStar || '',
+      adherencePct: adh.pct,
+      completed: adh.totalCompleted,
+      scheduled: adh.totalScheduled,
+    }
+    if (adh.totalScheduled >= 5) {
+      if (adh.pct >= 90) wins.push(`Compass adherence ${adh.pct}% (${adh.totalCompleted}/${adh.totalScheduled})`)
+      else if (adh.pct < 60) flags.push(`Compass adherence ${adh.pct}% — parent directives slipping`)
+    }
+  }
+
   // What to do next — single concrete suggestion
   const nextAction = (() => {
+    if (compassBlock && compassBlock.scheduled >= 5 && compassBlock.adherencePct < 60) {
+      return `Compass at ${compassBlock.adherencePct}%. Pick one focus this week and protect it — drop the rest if needed.`
+    }
     if (flags.length === 0 && wins.length >= 2) return `Protect what's working. Don't add new tasks this week.`
     if (finishRate < 60) return `Trim the schedule. ${childName} is being asked to do too much.`
     if ((profile.currentStreak || 0) === 0 && (profile.longestStreak || 0) >= 5) {
@@ -146,6 +189,7 @@ function generateWeeklyDigest(history) {
     bestDay,
     wins,
     flags,
+    compass: compassBlock,
     nextAction,
   }
 }

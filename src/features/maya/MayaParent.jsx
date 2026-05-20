@@ -322,6 +322,31 @@ export default function MayaParent() {
                 <div style={{ fontSize: 18, fontWeight: 700, color: C.gold }}>{digest.sDays}/{digest.aDays}</div>
               </div>
             </div>
+            {digest.compass && digest.compass.scheduled >= 1 && (
+              <div style={{
+                marginTop: 4, marginBottom: 10, padding: '8px 10px',
+                background: 'rgba(45,212,191,0.06)', borderRadius: 10,
+                border: `1px solid ${C.border}`,
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <div style={{ fontSize: 9, color: C.teal, textTransform: 'uppercase', letterSpacing: 1 }}>
+                    Compass · {digest.compass.track}
+                  </div>
+                  <div style={{
+                    fontSize: 11, fontWeight: 700,
+                    color: digest.compass.adherencePct >= 80 ? C.green
+                         : digest.compass.adherencePct >= 60 ? C.amber : C.red,
+                  }}>
+                    {digest.compass.adherencePct}% ({digest.compass.completed}/{digest.compass.scheduled})
+                  </div>
+                </div>
+                {digest.compass.northStar && (
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 4, lineHeight: 1.4 }}>
+                    ★ {digest.compass.northStar}
+                  </div>
+                )}
+              </div>
+            )}
             {digest.wins.length > 0 && (
               <div style={{ marginBottom: 6 }}>
                 {digest.wins.map((w, i) => (
