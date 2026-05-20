@@ -86,6 +86,7 @@ const MESSAGE_TYPES = {
   DEEP_EXPLAIN: 'deep_explain',  // long-form: explain a concept properly
   QUIZ_TURN: 'quiz_turn',        // mid-quiz: react to answer, ask next question
   QUIZ_FINALE: 'quiz_finale',    // end-of-quiz: react to last answer, summarize
+  COMPASS_NUDGE: 'compass_nudge', // proactive nudge: parent compass focus still pending
 }
 
 // When Vasco asks for a quiz / questions / explanation, the 1-3 sentence rule
@@ -146,6 +147,9 @@ function buildPrompt(type, context) {
 
     case MESSAGE_TYPES.IDLE_NUDGE:
       return `${name}'s been idle for ${context.idleMinutes} minutes. Light, casual nudge. No pressure. 1 sentence.`
+
+    case MESSAGE_TYPES.COMPASS_NUDGE:
+      return `${name} still has parent-compass focuses pending today: ${context.pendingLabels.join(', ')}. Track: ${context.trackLabel}.${context.northStar ? ` Week's north star: "${context.northStar}".` : ''}${context.adherencePct != null ? ` 7d adherence: ${context.adherencePct}%.` : ''} Nudge — reference the compass as the parent's priority, name one of the focuses, keep it sharp (not preachy). 1-2 sentences.`
 
     case MESSAGE_TYPES.DAY_COMPLETE:
       return `${name} completed ALL tasks today. Day grade: ${context.dayGrade}. Total XP earned: ${context.totalXP}. Combo streak: ${context.combo}. Go big on celebration — earned it. 2-3 sentences.`

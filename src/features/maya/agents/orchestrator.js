@@ -6,6 +6,8 @@
 
 import { processTaskComplete, processTaskSkip, checkAchievements, getDayGrade } from './gamification'
 import { evaluateSchedule, getDebrief, getMorningBriefing } from './scheduler'
+import { focusesForToday, loadCompassLog, todayDateKey, adherenceLastNDays, getTrack } from '../lib/compassTracks'
+import { loadProfile } from '../lib/profile'
 import { generateMessage, MESSAGE_TYPES } from './mayaCore'
 import { shouldSpotCheck, generateSpotCheckQuestion, createSpotCheckRecord } from './antiGaming'
 import { recordInsideJoke } from './personalityLearner'
@@ -210,6 +212,43 @@ async function handleScheduleTick(state, personalityContext) {
     result.messages.push(msg)
     result.events.push({ agent: 'scheduler', action: nudge.type, data: nudge })
   }
+
+  // ── Parent compass nudge ──
+  // Fires when: compass is set, today has pending focuses, time is past 14:00,
+  // and we haven't already nudged in the last 3 hours. Rate-limit lives in
+  // localStorage so it survives reloads.
+  try {
+    const profile = loadProfile() || {}
+    const compass = profile.parentCompass
+    if (compass?.track) {
+      const todays = focusesForToday(compass)
+      const log = loadCompassLog()
+      const todayKey = todayDateKey()
+      const done = log[todayKey] || {}
+      const pending = todays.filter(f => !done[f.id])
+      const hour = new Date().getHours()
+      const lastNudgeKey = 'maya_compass_last_nudge'
+      const last = parseInt(localStorage.getItem(lastNudgeKey) || '0', 10)
+      const hoursSince = (Date.now() - last) / 3600000
+      if (pending.length > 0 && hour >= 14 && hour < 21 && hoursSince >= 3) {
+        const track = getTrack(compass.track)
+        const trackLabel = compass.track === 'custom' && compass.customLabel
+          ? compass.customLabel
+          : (track?.label || 'Compass')
+        const adh = adherenceLastNDays(compass, 7)
+        const ctx = {
+          pendingLabels: pending.map(f => f.label).slice(0, 3),
+          trackLabel,
+          northStar: compass.northStar || '',
+          adherencePct: adh.totalScheduled >= 3 ? adh.pct : null,
+        }
+        const msg = await generateMessage(MESSAGE_TYPES.COMPASS_NUDGE, ctx, personalityContext)
+        result.messages.push(msg)
+        result.events.push({ agent: 'compass', action: 'pending_nudge', data: { pending: pending.length } })
+        try { localStorage.setItem(lastNudgeKey, String(Date.now())) } catch {}
+      }
+    }
+  } catch {}
 
   return result
 }
