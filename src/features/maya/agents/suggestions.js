@@ -5,6 +5,7 @@
 
 import { getMemoryStats } from './memory'
 import { loadHistory } from './lessonAnalyst'
+import { focusesForToday, loadCompassLog, todayDateKey, adherenceLastNDays, getTrack } from '../lib/compassTracks'
 
 function loadLS(key) {
   try { return JSON.parse(localStorage.getItem(key)) } catch { return null }
@@ -85,6 +86,45 @@ function getSuggestion({ tasks = [], gamification = {}, todayMood, profile }) {
       icon: '🎯',
       priority: daysUntilNext !== null && daysUntilNext <= 14 ? 88 : 78,
     })
+  }
+
+  // 4b. Parent compass — pending focuses today
+  const compass = profile?.parentCompass
+  if (compass?.track) {
+    const todays = focusesForToday(compass)
+    if (todays.length > 0) {
+      const log = loadCompassLog()
+      const done = log[todayDateKey()] || {}
+      const pending = todays.filter(f => !done[f.id])
+      const track = getTrack(compass.track)
+      const trackLabel = compass.track === 'custom' && compass.customLabel
+        ? compass.customLabel
+        : (track?.label || 'Compass')
+      if (pending.length > 0 && hour >= 9) {
+        // Higher priority later in the day — the compass is the parent's stack.
+        const urgency = hour >= 17 ? 91 : hour >= 14 ? 87 : 83
+        candidates.push({
+          title: `Parent compass: ${pending[0].label}`,
+          sub: `${pending.length} focus${pending.length > 1 ? 'es' : ''} left · ${trackLabel}`,
+          action: '/briefing',
+          icon: '🧭',
+          priority: urgency,
+        })
+      } else if (pending.length === 0 && todays.length > 0) {
+        // Compass cleared — celebrate it, but with low priority so it
+        // doesn't drown out other suggestions.
+        const adh = adherenceLastNDays(compass, 7)
+        if (adh.pct != null && adh.pct >= 80) {
+          candidates.push({
+            title: `Compass on lock`,
+            sub: `${adh.pct}% adherence · ${trackLabel}`,
+            action: '/insights',
+            icon: '🌟',
+            priority: 55,
+          })
+        }
+      }
+    }
   }
 
   // 5. Morning + nothing done → briefing
