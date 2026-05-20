@@ -18,6 +18,7 @@ import MayaDashboard from './features/maya/MayaDashboard'
 const MayaSchedule = lazy(() => import('./features/maya/MayaSchedule'))
 const MayaProfile = lazy(() => import('./features/maya/MayaProfile'))
 const MayaParent = lazy(() => import('./features/maya/MayaParent'))
+const MayaParentCompass = lazy(() => import('./features/maya/MayaParentCompass'))
 const MayaLesson = lazy(() => import('./features/maya/MayaLesson'))
 const MayaLessons = lazy(() => import('./features/maya/MayaLessons'))
 const MayaMemory = lazy(() => import('./features/maya/MayaMemory'))
@@ -100,6 +101,7 @@ function GatedRoutes() {
           <Route path="/schedule" element={<MayaSchedule />} />
           <Route path="/profile" element={<MayaProfile />} />
           <Route path="/parent" element={<MayaParent />} />
+          <Route path="/parent/compass" element={<MayaParentCompass />} />
           <Route path="/lesson" element={<MayaLesson />} />
           <Route path="/lessons" element={<MayaLessons />} />
           <Route path="/memory" element={<MayaMemory />} />

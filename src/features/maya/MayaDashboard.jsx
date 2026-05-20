@@ -15,6 +15,9 @@ import { getMorningBrief, dismissMorningBrief } from './agents/morningBrief'
 import { EXCUSE_OPTIONS, logSkipReason, recordTaskOutcome } from './agents/intelligence'
 import StreakHeatmap from './components/StreakHeatmap'
 import { getApiKey } from './lib/secrets'
+import {
+  focusesForToday, loadCompassLog, toggleCompassFocus, todayDateKey, getTrack,
+} from './lib/compassTracks'
 
 // Lazy load 3D avatar (Three.js is ~800KB)
 const MayaAvatar = lazy(() => import('./components/Maya3D'))
@@ -517,11 +520,81 @@ export default function MayaDashboard({ onOpenSearch }) {
   )
 }
 
+// ─── Parent Compass card — surfaces today's parent-set focuses ───
+// Lives above today's tasks. Adherence is tracked in maya_compass_log
+// (separate from XP/gamification so the compass doesn't game itself).
+function CompassCard({ profile }) {
+  const compass = profile?.parentCompass
+  const todays = focusesForToday(compass)
+  const [, force] = useState(0)
+  if (!compass || !compass.track || todays.length === 0) return null
+
+  const log = loadCompassLog()
+  const today = log[todayDateKey()] || {}
+  const track = getTrack(compass.track)
+  const trackLabel = compass.track === 'custom' && compass.customLabel
+    ? compass.customLabel
+    : (track?.label || 'Compass')
+
+  const toggle = (focusId) => {
+    toggleCompassFocus(focusId)
+    force(x => x + 1)
+  }
+
+  const done = todays.filter(f => today[f.id]).length
+
+  return (
+    <div style={{
+      padding: 14, background: C.glass, backdropFilter: C.blur, WebkitBackdropFilter: C.blur,
+      borderRadius: 14, marginBottom: 14, border: `1px solid ${C.glassBorder}`,
+      borderLeft: `3px solid ${C.teal}`,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4 }}>
+        <div style={{ fontSize: 10, color: C.teal, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700 }}>
+          🧭 From your parent · {trackLabel}
+        </div>
+        <div style={{ fontSize: 10, color: C.muted }}>{done}/{todays.length}</div>
+      </div>
+      {compass.northStar && (
+        <div style={{ fontSize: 11, color: C.muted, fontStyle: 'italic', marginBottom: 10, lineHeight: 1.4 }}>
+          "{compass.northStar}"
+        </div>
+      )}
+      {todays.map(f => {
+        const isDone = !!today[f.id]
+        return (
+          <div key={f.id} onClick={() => toggle(f.id)} style={{
+            display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+            padding: '8px 0', borderTop: `1px dashed ${C.glassBorder}`,
+            opacity: isDone ? 0.5 : 1, transition: 'opacity 0.2s ease',
+          }}>
+            <div style={{
+              width: 22, height: 22, borderRadius: '50%',
+              border: `2px solid ${isDone ? C.green : C.dim}`,
+              background: isDone ? C.green : 'transparent',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 12, color: C.bg, fontWeight: 700, flexShrink: 0,
+            }}>{isDone ? '✓' : ''}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontSize: 13, color: C.text,
+                textDecoration: isDone ? 'line-through' : 'none',
+              }}>{f.label}</div>
+              <div style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>{f.minutes} min</div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ─── Tasks Tab ───
 function TasksTab({ maya, onSkipRequest }) {
-  const { tasks, completeTask } = maya
+  const { tasks, completeTask, profile } = maya
   return (
     <div>
+      <CompassCard profile={profile} />
       <div style={{ fontSize: 10, color: C.muted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
         Today's Tasks
       </div>

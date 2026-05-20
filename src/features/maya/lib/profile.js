@@ -45,6 +45,18 @@ const DEFAULT_PROFILE = {
   patterns: {},        // {wednesday_reading: "tends to skip"}
   // Parent access
   parentPin: '',
+  // Parent Compass — directive layer above the kid's day.
+  // Parent picks a specialization track, this week's North Star, and 1-3
+  // daily focuses. Maya treats these as priority and the dashboard surfaces
+  // them with a "From your parent" badge.
+  parentCompass: {
+    track: '',              // preset id (see lib/compassTracks.js) or 'custom'
+    customLabel: '',        // shown if track === 'custom'
+    northStar: '',          // this week's outcome ("Master AMC10 casework")
+    focuses: [],            // [{ id, label, type, minutes, days:[0..6] }]
+    weekStartIso: '',       // monday of the week the goals belong to
+    updatedAt: null,        // ISO timestamp of last save
+  },
   // Onboarding
   setupComplete: false,
   setupAt: null,

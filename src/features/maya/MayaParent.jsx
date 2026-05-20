@@ -251,6 +251,28 @@ export default function MayaParent() {
       </div>
 
       <div style={{ padding: 16, maxWidth: 480, margin: '0 auto' }}>
+        {/* Parent Compass entry — directive layer */}
+        <button onClick={() => navigate('/parent/compass')} style={{
+          width: '100%', textAlign: 'left', cursor: 'pointer',
+          padding: 16, background: C.surface, borderRadius: 16,
+          border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.teal}`,
+          marginBottom: 16, color: C.text, fontFamily: C.mono,
+          display: 'flex', alignItems: 'center', gap: 12,
+        }}>
+          <div style={{ fontSize: 28 }}>🧭</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 10, color: C.teal, textTransform: 'uppercase', letterSpacing: 1.5 }}>
+              {profile?.parentCompass?.track ? 'Compass — edit' : 'New: Parent Compass'}
+            </div>
+            <div style={{ fontSize: 13, marginTop: 2 }}>
+              {profile?.parentCompass?.northStar
+                ? `"${profile.parentCompass.northStar.slice(0, 60)}${profile.parentCompass.northStar.length > 60 ? '…' : ''}"`
+                : 'Pick a specialization track. Set this week\'s goal. Maya pushes it daily.'}
+            </div>
+          </div>
+          <div style={{ color: C.muted, fontSize: 18 }}>→</div>
+        </button>
+
         {/* Headline grade */}
         <div style={{
           padding: 24, background: C.surface, borderRadius: 16,
