@@ -145,6 +145,12 @@ const ACHIEVEMENTS = [
   { id: 's_grade', title: 'Perfect Day', desc: 'Get an S grade', icon: '💎', check: s => s.dayGrade?.grade === 'S' },
   { id: 'xp_500', title: 'XP Hunter', desc: 'Earn 500 total XP', icon: '🏅', check: s => s.totalXP >= 500 },
   { id: 'xp_1000', title: 'XP Machine', desc: 'Earn 1000 total XP', icon: '🏆', check: s => s.totalXP >= 1000 },
+  // Parent-compass adherence streaks — state.compassStreak is set by
+  // completeCompassFocus before calling checkAchievements.
+  { id: 'compass_3', title: 'On the Compass', desc: '3-day perfect compass streak', icon: '🧭', check: s => (s.compassStreak || 0) >= 3 },
+  { id: 'compass_7', title: 'Compass Locked', desc: '7-day perfect compass streak', icon: '🧭', check: s => (s.compassStreak || 0) >= 7 },
+  { id: 'compass_14', title: 'Compass Master', desc: '14-day perfect compass streak', icon: '🌟', check: s => (s.compassStreak || 0) >= 14 },
+  { id: 'compass_30', title: 'North Star', desc: '30-day perfect compass streak', icon: '✨', check: s => (s.compassStreak || 0) >= 30 },
 ]
 
 function checkAchievements(state, unlockedIds = []) {

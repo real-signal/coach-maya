@@ -1,6 +1,6 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, useRef, useState } from 'react'
-import { createInitialState, processCompassFocusComplete, COMPASS_FOCUS_XP } from '../agents/gamification'
-import { toggleCompassFocus, loadCompassLog, todayDateKey, focusesForToday } from '../lib/compassTracks'
+import { createInitialState, processCompassFocusComplete, checkAchievements, COMPASS_FOCUS_XP } from '../agents/gamification'
+import { toggleCompassFocus, loadCompassLog, todayDateKey, focusesForToday, adherenceStreak } from '../lib/compassTracks'
 import { getComboTimeLeft } from '../agents/scheduler'
 import { evaluateResponse, createSpotCheckRecord } from '../agents/antiGaming'
 import { recordEvent } from '../agents/personalityLearner'
@@ -333,11 +333,35 @@ function MayaProvider({ children }) {
         xp: COMPASS_FOCUS_XP,
         time: new Date().toISOString(),
       }
-      dispatch({ type: 'SET_STATE', payload: {
+      // Check compass-streak achievements. adherenceStreak reads the log
+      // we just wrote, so it reflects the new completion.
+      const compass = state.profile?.parentCompass
+      const compassStreak = compass?.track ? adherenceStreak(compass) : 0
+      const newAchievements = checkAchievements(
+        { ...nextGam, compassStreak },
+        state.unlockedAchievements || []
+      )
+      const payload = {
         gamification: nextGam,
         dayLog: [...(state.dayLog || []), dayLogEntry],
         lastActivityTime: new Date().toISOString(),
-      }})
+      }
+      if (newAchievements.length > 0) {
+        payload.unlockedAchievements = [
+          ...(state.unlockedAchievements || []),
+          ...newAchievements.map(a => a.id),
+        ]
+        sfx.achievement()
+      }
+      dispatch({ type: 'SET_STATE', payload })
+      if (newAchievements.length > 0) {
+        dispatch({ type: 'ADD_MESSAGES', payload: newAchievements.map(a => ({
+          text: `🏆 Achievement unlocked — ${a.title}: ${a.desc}`,
+          type: 'achievement',
+          timestamp: new Date().toISOString(),
+          achievement: a,
+        })) })
+      }
     } else if (!after && before) {
       // Uncheck — keep XP (don't claw back; the kid earned the moment).
       // Just drop the dayLog entry to keep the timeline honest.
