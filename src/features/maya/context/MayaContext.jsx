@@ -355,8 +355,11 @@ function MayaProvider({ children }) {
       }
       dispatch({ type: 'SET_STATE', payload })
       if (newAchievements.length > 0) {
+        // Format must match the regex in components/AchievementModal.jsx:
+        //   /^(.{1,2})\s+Achievement Unlocked: (.+?) — (.+)$/
+        // — same format used by orchestrator.js for task-driven unlocks.
         dispatch({ type: 'ADD_MESSAGES', payload: newAchievements.map(a => ({
-          text: `🏆 Achievement unlocked — ${a.title}: ${a.desc}`,
+          text: `${a.icon} Achievement Unlocked: ${a.title} — ${a.desc}`,
           type: 'achievement',
           timestamp: new Date().toISOString(),
           achievement: a,
