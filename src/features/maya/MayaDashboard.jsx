@@ -707,8 +707,16 @@ function StatsTab({ maya }) {
               fontSize: 11, color: C.muted, padding: '4px 0',
               borderBottom: i < dayLog.length - 1 ? `1px solid ${C.border}` : 'none',
             }}>
-              <span style={{ color: entry.type === 'task_complete' ? C.green : entry.type === 'task_skip' ? C.red : C.blue }}>
-                {entry.type === 'task_complete' ? '✓' : entry.type === 'task_skip' ? '✗' : '●'}
+              <span style={{ color:
+                entry.type === 'task_complete' ? C.green
+                : entry.type === 'task_skip' ? C.red
+                : entry.type === 'compass_complete' ? C.gold
+                : C.blue
+              }}>
+                {entry.type === 'task_complete' ? '✓'
+                : entry.type === 'task_skip' ? '✗'
+                : entry.type === 'compass_complete' ? '🧭'
+                : '●'}
               </span>
               {' '}{entry.task || entry.type}{' '}
               {entry.xp ? `+${entry.xp} XP` : ''}
