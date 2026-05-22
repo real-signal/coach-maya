@@ -10,28 +10,34 @@ const PROFILE_VERSION = 3
 
 const DEFAULT_PROFILE = {
   version: PROFILE_VERSION,
-  // Identity
-  name: '',
-  age: 12,
-  grade: '',           // school grade/year (e.g. "8", "Year 9")
-  location: '',        // city or country (e.g. "Singapore")
+  // Identity — defaults to Vasco's known profile so any fresh device load
+  // (including the public coachmaya.vercel.app deploy) lands directly on his
+  // setup instead of an empty 12yo placeholder.
+  name: 'Vasco',
+  age: 14,
+  grade: '9',
+  location: 'Singapore',
   timezone: '',        // IANA timezone (auto-detected on first save)
-  pronouns: '',
+  pronouns: 'he/him',
   // Goals & motivation
-  bigGoals: [],         // ["Make varsity tennis", "Learn piano sonata"]
-  hobbies: [],          // ["Tennis", "Piano", "Gaming", "Drawing"]
-  favoriteSubjects: [], // ["Maths", "Science"]
-  hardSubjects: [],     // ["Reading", "Writing"]
+  bigGoals: [
+    'Math olympiad medals',
+    'Piano competition wins',
+    'Top junior tennis ranking',
+  ],
+  hobbies: ['Tennis', 'Piano', 'Math'],
+  favoriteSubjects: ['Maths', 'Science'],
+  hardSubjects: [],
   // Personality dials
   humorStyle: 'sarcastic',     // sarcastic | playful | dry | wholesome
-  pushIntensity: 'medium',     // light | medium | hard
+  pushIntensity: 'hard',       // light | medium | hard
   motivationDriver: 'competition', // competition | identity | mastery | autonomy
   // Voice & avatar
   voiceEnabled: false,
   voiceAutoSpeak: false,
   systemVoice: null,           // chosen system voice name (null = auto-pick best)
   // API keys live in maya_secrets (see lib/secrets.js) — NOT in profile.
-  elevenLabsVoiceId: '',       // chosen ElevenLabs voice id
+  elevenLabsVoiceId: 'sMeMiS36FkhlOd721w9P',  // chosen ElevenLabs voice id (Vasco's coach)
   notificationsEnabled: false, // Web Notifications opt-in
   wakeWordEnabled: false,      // "hey maya" always-listen
   presenceDetectionEnabled: false, // camera-based "walked in" greeting (opt-in)
@@ -59,8 +65,8 @@ const DEFAULT_PROFILE = {
     weekStartIso: '',       // monday of the week the goals belong to
     updatedAt: null,        // ISO timestamp of last save
   },
-  // Onboarding
-  setupComplete: false,
+  // Onboarding — pre-completed since defaults are already Vasco's identity.
+  setupComplete: true,
   setupAt: null,
   // Streak
   longestStreak: 0,
