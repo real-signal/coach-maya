@@ -29,18 +29,21 @@ export default defineConfig({
   },
   build: {
     // Push the 500KB-chunk warning up so the build log isn't spammy while we
-    // keep an eye on real growth; split common deps into their own chunks so
-    // the initial dashboard load doesn't pull every route's transitive deps.
+    // keep an eye on real growth.
     chunkSizeWarningLimit: 800,
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
-          if (!id.includes('node_modules')) return undefined
-          if (id.includes('three') || id.includes('@react-three')) return 'three'
-          if (id.includes('@supabase')) return 'supabase'
-          if (id.includes('react-router')) return 'router'
-          if (id.includes('react-dom') || id.match(/[/\\]react[/\\]/)) return 'react'
-          return 'vendor'
+        // Only split three.js (the heaviest dep) into its own chunk.
+        // Previously we split react / react-dom / react-router into separate
+        // chunks with a `vendor` catch-all — but React internal peers like
+        // `scheduler` and `use-sync-external-store` ended up in `vendor` and
+        // called React hooks at module-eval time, before the `react` chunk
+        // had finished initializing → "Cannot read properties of undefined
+        // (reading 'useLayoutEffect')" → React never mounted → blank app.
+        // Letting Rollup auto-split everything except three keeps init order
+        // safe; lazy() routes still get their own chunks.
+        manualChunks: {
+          three: ['three', '@react-three/fiber', '@react-three/drei'],
         },
       },
     },
