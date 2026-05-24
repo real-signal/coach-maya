@@ -149,15 +149,19 @@ function MayaProvider({ children }) {
     saveToStorage(STORAGE_KEY, bounded)
   }, [state])
 
-  // One-time migration: force voice OFF for users who had it on from earlier versions
+  // One-time migration: ensure voice is ON for the v54+ Vasco-default build.
+  // The previous v1 migration force-DISABLED voice; this v2 migration reverses
+  // it once per device so existing installs pick up the ElevenLabs coach voice
+  // without the user having to manually flip the toggle.
   useEffect(() => {
     try {
-      const key = 'maya_voice_disabled_v1'
+      const key = 'maya_voice_enabled_v2'
       if (!localStorage.getItem(key)) {
         const p = loadProfile()
-        if (p.voiceAutoSpeak || p.voiceEnabled) {
-          saveProfile({ ...p, voiceAutoSpeak: false, voiceEnabled: false })
-          dispatch({ type: 'SET_PROFILE', payload: { ...p, voiceAutoSpeak: false, voiceEnabled: false } })
+        if (!p.voiceAutoSpeak || !p.voiceEnabled) {
+          const next = { ...p, voiceAutoSpeak: true, voiceEnabled: true }
+          saveProfile(next)
+          dispatch({ type: 'SET_PROFILE', payload: next })
         }
         localStorage.setItem(key, '1')
       }

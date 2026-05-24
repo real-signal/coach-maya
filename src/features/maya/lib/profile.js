@@ -33,8 +33,8 @@ const DEFAULT_PROFILE = {
   pushIntensity: 'hard',       // light | medium | hard
   motivationDriver: 'competition', // competition | identity | mastery | autonomy
   // Voice & avatar
-  voiceEnabled: false,
-  voiceAutoSpeak: false,
+  voiceEnabled: true,
+  voiceAutoSpeak: true,
   systemVoice: null,           // chosen system voice name (null = auto-pick best)
   // API keys live in maya_secrets (see lib/secrets.js) — NOT in profile.
   elevenLabsVoiceId: 'sMeMiS36FkhlOd721w9P',  // chosen ElevenLabs voice id (Vasco's coach)

@@ -76,6 +76,7 @@ function getApiKey(provider) {
   // Final fallback: env var (build-time, never persisted)
   if (provider === 'anthropic') return import.meta.env.VITE_ANTHROPIC_API_KEY || ''
   if (provider === 'openai') return import.meta.env.VITE_OPENAI_API_KEY || ''
+  if (provider === 'elevenlabs') return import.meta.env.VITE_ELEVENLABS_API_KEY || ''
   return ''
 }
 
