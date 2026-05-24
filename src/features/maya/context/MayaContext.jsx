@@ -168,6 +168,23 @@ function MayaProvider({ children }) {
     } catch {}
   }, [])
 
+  // One-time migration: turn presence detection ON for existing devices.
+  // Browser will prompt for camera once; granted state persists forever after.
+  useEffect(() => {
+    try {
+      const key = 'maya_presence_enabled_v1'
+      if (!localStorage.getItem(key)) {
+        const p = loadProfile()
+        if (!p.presenceDetectionEnabled) {
+          const next = { ...p, presenceDetectionEnabled: true }
+          saveProfile(next)
+          dispatch({ type: 'SET_PROFILE', payload: next })
+        }
+        localStorage.setItem(key, '1')
+      }
+    } catch {}
+  }, [])
+
   // URL-driven profile patcher: ?fixProfile=age:14,name:Vasco,grade:9
   // Strips the query param after applying so it doesn't re-run.
   useEffect(() => {
@@ -585,23 +602,22 @@ function MayaProvider({ children }) {
       const res = await startPresenceWatch(() => {
         // Don't barge in on an active conversation or speech
         if (state.voiceState === 'speaking' || state.voiceState === 'listening') return
-        const line = buildArrivalLine({
-          profile: state.profile,
-          tasks: state.tasks,
-          todayMood: state.todayMood,
-          gamification: state.gamification,
-        })
-        const msg = { text: line, type: 'maya', timestamp: new Date().toISOString(), tag: 'presence_arrive' }
-        dispatch({ type: 'ADD_MESSAGE', payload: msg })
-        // speakText auto-respects voiceAutoSpeak; force a speak here since
-        // arrival is the whole point — but only if user opted into voice.
-        if (state.profile?.voiceAutoSpeak) {
-          dispatch({ type: 'SET_VOICE_STATE', payload: 'speaking' })
-          speak(line, {
-            onEnd: () => dispatch({ type: 'SET_VOICE_STATE', payload: 'idle' }),
-            onError: () => dispatch({ type: 'SET_VOICE_STATE', payload: 'idle' }),
-          })
-        }
+        // 1.2s settle delay — lets him sit down before Maya speaks, so it
+        // feels like noticing rather than ambushing.
+        setTimeout(() => {
+          if (cancelled) return
+          if (state.voiceState === 'speaking' || state.voiceState === 'listening') return
+          const line = buildArrivalLine({ profile: state.profile })
+          const msg = { text: line, type: 'maya', timestamp: new Date().toISOString(), tag: 'presence_arrive' }
+          dispatch({ type: 'ADD_MESSAGE', payload: msg })
+          if (state.profile?.voiceAutoSpeak) {
+            dispatch({ type: 'SET_VOICE_STATE', payload: 'speaking' })
+            speak(line, {
+              onEnd: () => dispatch({ type: 'SET_VOICE_STATE', payload: 'idle' }),
+              onError: () => dispatch({ type: 'SET_VOICE_STATE', payload: 'idle' }),
+            })
+          }
+        }, 1200)
       })
       if (!res.ok && !cancelled) {
         console.warn('Presence watch failed:', res.error)

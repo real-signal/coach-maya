@@ -185,10 +185,10 @@ function pick(arr) { return arr[Math.floor(Math.random() * arr.length)] }
 
 /**
  * Compose a natural greeting for the moment Vasco walks back in.
- * Combines an opener (varies by time) with the contextual subline from
- * the personalGreeting agent so it doesn't feel scripted.
+ * Kept intentionally short — a single beat, no follow-up — so the
+ * arrival feels light, not chaotic. Maya can elaborate when spoken to.
  */
-function buildArrivalLine({ profile = {}, tasks = [], todayMood = null, gamification = {} } = {}) {
+function buildArrivalLine({ profile = {} } = {}) {
   const name = profile.name || 'champ'
   const hour = new Date().getHours()
 
@@ -196,12 +196,7 @@ function buildArrivalLine({ profile = {}, tasks = [], todayMood = null, gamifica
   if (hour >= 5 && hour < 11) openerPool = MORNING_OPENERS.concat(NEUTRAL_OPENERS)
   else if (hour >= 23 || hour < 5) openerPool = LATE_OPENERS
 
-  const opener = pick(openerPool)(name)
-  const ctx = getPersonalGreeting({ profile, tasks, todayMood, gamification })
-
-  // Drop the headline (we just spoke our own opener); use the subline as
-  // the substantive coaching beat. Keep it short for natural delivery.
-  return `${opener} ${ctx.subline}`
+  return pick(openerPool)(name)
 }
 
 export {
