@@ -171,7 +171,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <MayaProvider>
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <GatedRoutes />
         </BrowserRouter>
       </MayaProvider>
