@@ -102,7 +102,7 @@ async function extractWithClaude(transcript) {
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
+        model: 'claude-sonnet-4-6',
         max_tokens: 500,
         system: EXTRACTION_PROMPT,
         messages: [{ role: 'user', content: transcript }],

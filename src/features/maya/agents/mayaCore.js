@@ -288,14 +288,14 @@ function checkRateLimit() {
 
 // Whitelist of models we'll send — prevents arbitrary strings from profile
 // reaching the API and ensures graceful default if profile field is corrupt.
-const ALLOWED_MODELS = new Set(['claude-sonnet-4-5', 'claude-opus-4-5'])
+const ALLOWED_MODELS = new Set(['claude-sonnet-4-6', 'claude-opus-4-6'])
 
 function getModelFromProfile() {
   try {
     const p = JSON.parse(localStorage.getItem('maya_profile') || '{}')
     if (p?.aiModel && ALLOWED_MODELS.has(p.aiModel)) return p.aiModel
   } catch {}
-  return 'claude-sonnet-4-5'
+  return 'claude-sonnet-4-6'
 }
 
 async function callClaudeAPI(systemPrompt, userPrompt, history = [], maxTokens = 250) {

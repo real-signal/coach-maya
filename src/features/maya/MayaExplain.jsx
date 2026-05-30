@@ -61,7 +61,7 @@ export default function MayaExplain() {
             'anthropic-dangerous-direct-browser-access': 'true',
           },
           body: JSON.stringify({
-            model: 'claude-sonnet-4-5',
+            model: 'claude-sonnet-4-6',
             max_tokens: 600,
             system: `You are Maya, explaining things to a kid. Rules:
 - Explain like you're a cool older sibling, not a textbook

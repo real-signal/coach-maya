@@ -41,7 +41,7 @@ const DEFAULT_PROFILE = {
   notificationsEnabled: false, // Web Notifications opt-in
   wakeWordEnabled: false,      // "hey maya" always-listen
   presenceDetectionEnabled: true,  // camera-based "walked in" greeting (default-on for Vasco's device)
-  aiModel: 'claude-sonnet-4-5',    // 'claude-sonnet-4-5' (fast) | 'claude-opus-4-5' (deeper)
+  aiModel: 'claude-sonnet-4-6',    // 'claude-sonnet-4-6' (fast) | 'claude-opus-4-6' (deeper)
   toughMode: false,                // raise rigor bar across all Maya responses
   voiceBargeIn: true,              // speaking during Maya's TTS interrupts her
   avatarStyle: 'pixar',

@@ -66,7 +66,7 @@ export default function MayaVocab() {
             'anthropic-dangerous-direct-browser-access': 'true',
           },
           body: JSON.stringify({
-            model: 'claude-sonnet-4-5',
+            model: 'claude-sonnet-4-6',
             max_tokens: 200,
             system: 'You help a 12-year-old understand vocabulary. Return JSON only: {"definition":"simple 1-sentence definition","example":"example sentence using the word"}',
             messages: [{ role: 'user', content: `Define "${form.word}" for a 12-year-old.` }],

@@ -268,12 +268,12 @@ export default function MayaProfile() {
           </Row>
           <Row label="Model">
             <select
-              value={profile.aiModel || 'claude-sonnet-4-5'}
+              value={profile.aiModel || 'claude-sonnet-4-6'}
               onChange={e => update({ aiModel: e.target.value })}
               style={{ ...input, fontSize: 12 }}
             >
-              <option value="claude-sonnet-4-5">Sonnet 4.5 — fast, smart (default)</option>
-              <option value="claude-opus-4-5">Opus 4.5 — deeper, slower, costlier</option>
+              <option value="claude-sonnet-4-6">Sonnet 4.6 — fast, smart (default)</option>
+              <option value="claude-opus-4-6">Opus 4.6 — deeper, slower, costlier</option>
             </select>
           </Row>
           <p style={{ fontSize: 10, color: C.muted, marginTop: 6, lineHeight: 1.5 }}>

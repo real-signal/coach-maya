@@ -41,13 +41,13 @@ function getAllMemos() {
 }
 
 // Whitelist matches mayaCore so memo generation honours the chosen model.
-const ALLOWED_MODELS = new Set(['claude-sonnet-4-5', 'claude-opus-4-5'])
+const ALLOWED_MODELS = new Set(['claude-sonnet-4-6', 'claude-opus-4-6'])
 function getModel() {
   try {
     const p = JSON.parse(localStorage.getItem('maya_profile') || '{}')
     if (p?.aiModel && ALLOWED_MODELS.has(p.aiModel)) return p.aiModel
   } catch {}
-  return 'claude-sonnet-4-5'
+  return 'claude-sonnet-4-6'
 }
 
 /**

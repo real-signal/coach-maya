@@ -29,7 +29,7 @@ async function generateStudyGuide(transcript, subject) {
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
+        model: 'claude-sonnet-4-6',
         max_tokens: 1500,
         system: `You are Maya, a sarcastic but encouraging AI coach for a kid. Generate a study guide from his lesson transcript. Be concise, use simple language, make it engaging. Return STRICT JSON only (no markdown fences):
 {
