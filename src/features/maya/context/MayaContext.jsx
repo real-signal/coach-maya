@@ -168,6 +168,38 @@ function MayaProvider({ children }) {
     } catch {}
   }, [])
 
+  // Audio unlock — browsers refuse audio.play() until the tab has received a
+  // user gesture. The arrival greeting fires from presence detection, not from
+  // a click, so without this primer the speech is silently rejected. On the
+  // first pointer/key/touch event we play a near-silent buffer; that single
+  // gesture unlocks audio for the rest of the session, so when Vasco walks
+  // back in Maya can actually speak.
+  useEffect(() => {
+    const SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAVFYAAFRWAAABAAgAZGF0YQAAAAA='
+    let unlocked = false
+    const unlock = () => {
+      if (unlocked) return
+      unlocked = true
+      try {
+        const a = new Audio(SILENT_WAV)
+        a.volume = 0
+        a.play().catch(() => {})
+      } catch {}
+      try { window.speechSynthesis?.resume() } catch {}
+      window.removeEventListener('pointerdown', unlock)
+      window.removeEventListener('keydown', unlock)
+      window.removeEventListener('touchstart', unlock)
+    }
+    window.addEventListener('pointerdown', unlock)
+    window.addEventListener('keydown', unlock)
+    window.addEventListener('touchstart', unlock)
+    return () => {
+      window.removeEventListener('pointerdown', unlock)
+      window.removeEventListener('keydown', unlock)
+      window.removeEventListener('touchstart', unlock)
+    }
+  }, [])
+
   // One-time migration: turn presence detection ON for existing devices.
   // Browser will prompt for camera once; granted state persists forever after.
   useEffect(() => {
