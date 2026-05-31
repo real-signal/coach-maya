@@ -39,7 +39,7 @@ const DEFAULT_PROFILE = {
   // API keys live in maya_secrets (see lib/secrets.js) — NOT in profile.
   elevenLabsVoiceId: 'sMeMiS36FkhlOd721w9P',  // chosen ElevenLabs voice id (Vasco's coach)
   notificationsEnabled: false, // Web Notifications opt-in
-  wakeWordEnabled: false,      // "hey maya" always-listen
+  wakeWordEnabled: true,       // "hey maya" always-listen (hands-free engage)
   presenceDetectionEnabled: true,  // camera-based "walked in" greeting (default-on for Vasco's device)
   aiModel: 'claude-sonnet-4-6',    // 'claude-sonnet-4-6' (fast) | 'claude-opus-4-6' (deeper)
   toughMode: false,                // raise rigor bar across all Maya responses

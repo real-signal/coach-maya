@@ -185,6 +185,24 @@ function MayaProvider({ children }) {
     } catch {}
   }, [])
 
+  // One-time migration: turn wake word ("hey maya") ON for existing devices
+  // so Maya is hands-free engageable from app boot without a mic-button tap.
+  // Browser will prompt for mic permission once; granted state persists after.
+  useEffect(() => {
+    try {
+      const key = 'maya_wake_word_enabled_v1'
+      if (!localStorage.getItem(key)) {
+        const p = loadProfile()
+        if (!p.wakeWordEnabled) {
+          const next = { ...p, wakeWordEnabled: true }
+          saveProfile(next)
+          dispatch({ type: 'SET_PROFILE', payload: next })
+        }
+        localStorage.setItem(key, '1')
+      }
+    } catch {}
+  }, [])
+
   // URL-driven profile patcher: ?fixProfile=age:14,name:Vasco,grade:9
   // Strips the query param after applying so it doesn't re-run.
   useEffect(() => {
