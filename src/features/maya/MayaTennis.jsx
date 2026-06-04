@@ -1,5 +1,5 @@
 /**
- * Tennis — match journal + training log for ITF 29.4 competitor.
+ * Tennis — match journal + training log for junior tournament players.
  * Win/loss record, tactical notes, serve targets, tournament results.
  */
 import { useState, useMemo } from 'react'

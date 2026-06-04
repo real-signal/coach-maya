@@ -4,6 +4,7 @@
  */
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { loadProfile } from './lib/profile'
 
 const C = {
   bg: '#0a0a14', surface: 'rgba(255,255,255,0.04)', surfaceLight: 'rgba(255,255,255,0.07)',
@@ -52,6 +53,10 @@ export default function MayaCompetitions() {
   const [form, setForm] = useState({ name: '', category: 'math', date: '', result: 'none', notes: '' })
 
   const persist = (next) => { setComps(next); saveComps(next) }
+
+  // Only the seed user (Vasco) sees the CV-import button. Any other family
+  // starts with an empty competitions tracker and adds entries manually.
+  const isSeedUser = (loadProfile().name || '').trim().toLowerCase() === 'vasco'
 
   const today = new Date().toISOString().slice(0, 10)
 
@@ -190,8 +195,8 @@ export default function MayaCompetitions() {
           ))}
         </div>
 
-        {/* Import from CV */}
-        {comps.length === 0 && (
+        {/* Import from CV — only offered to the seed user (Vasco) */}
+        {comps.length === 0 && isSeedUser && (
           <button onClick={importFromCV} style={{
             width: '100%', padding: 14, marginBottom: 12,
             background: C.gold + '12', border: `1px solid ${C.gold}44`, borderRadius: 14,

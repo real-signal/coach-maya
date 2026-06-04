@@ -17,11 +17,6 @@ const C = {
 // Tagged with vibes so you can match Maya's personality to what you want
 const VOICE_PRESETS = [
   {
-    id: 'sMeMiS36FkhlOd721w9P',
-    name: "Vasco's coach ⭐",
-    desc: 'Custom voice — set as default for Maya. Tap to use.',
-  },
-  {
     id: '29vD33N1CtxCmqQRPOHJ',
     name: 'Drew 🏀',
     desc: 'CHILL BASKETBALL PLAYER — laid-back American male, casual confident delivery. Post-game interview energy.',
@@ -60,6 +55,11 @@ const VOICE_PRESETS = [
     id: 'EXAVITQu4vr4xnSDxMaL',
     name: 'Sarah (female)',
     desc: 'Warm American female — soft confident coach',
+  },
+  {
+    id: 'sMeMiS36FkhlOd721w9P',
+    name: 'Coach (custom)',
+    desc: 'Custom ElevenLabs voice — paste a Voice ID below to swap.',
   },
 ]
 
@@ -110,48 +110,6 @@ export default function MayaProfile() {
     localStorage.clear()
     navigate('/')
     location.reload()
-  }
-
-  // One-tap fill of Vasco's known identity. Merges over current profile —
-  // does NOT wipe API keys, streaks, inside jokes, learned tactics, etc.
-  const restoreVascoDefaults = () => {
-    if (!confirm("Fill in Vasco's profile (age 14, Singapore, hobbies, goals)? Keys/streaks/learned data are kept.")) return
-    const next = {
-      ...profile,
-      name: 'Vasco',
-      age: 14,
-      grade: profile.grade || '9',
-      location: 'Singapore',
-      pronouns: profile.pronouns || 'he/him',
-      hobbies: dedupe([...(profile.hobbies || []), 'Tennis', 'Piano', 'Math']),
-      favoriteSubjects: dedupe([...(profile.favoriteSubjects || []), 'Maths', 'Science']),
-      bigGoals: dedupe([
-        ...(profile.bigGoals || []),
-        'Math olympiad medals',
-        'Piano competition wins',
-        'Top junior tennis ranking',
-      ]),
-      humorStyle: profile.humorStyle || 'sarcastic',
-      pushIntensity: profile.pushIntensity || 'hard',
-      motivationDriver: profile.motivationDriver || 'competition',
-      // Default to coach voice ID + camera presence ON. User can flip off.
-      elevenLabsVoiceId: profile.elevenLabsVoiceId || 'sMeMiS36FkhlOd721w9P',
-      presenceDetectionEnabled: profile.presenceDetectionEnabled || true,
-    }
-    setProfile(next)
-    saveProfile(next)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 1500)
-  }
-
-  function dedupe(arr) {
-    const seen = new Set()
-    return arr.filter(x => {
-      const k = String(x).toLowerCase().trim()
-      if (!k || seen.has(k)) return false
-      seen.add(k)
-      return true
-    })
   }
 
   return (
@@ -277,7 +235,7 @@ export default function MayaProfile() {
             </select>
           </Row>
           <p style={{ fontSize: 10, color: C.muted, marginTop: 6, lineHeight: 1.5 }}>
-            Sonnet handles most chats fine. Switch to Opus for hard math debates, deep tactical breakdowns, or when Vasco wants the smarter sparring partner.
+            Sonnet handles most chats fine. Switch to Opus for hard math debates, deep tactical breakdowns, or when you want the smarter sparring partner.
           </p>
           <button
             onClick={() => {
@@ -413,23 +371,6 @@ export default function MayaProfile() {
         )}
 
         <button onClick={save} style={primary}>{saved ? 'Saved ✓' : 'Save Changes'}</button>
-
-        <div style={{ marginTop: 20, padding: 14, background: C.surface, borderRadius: 12, border: `1px solid ${C.border}` }}>
-          <div style={{ fontSize: 10, color: C.muted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
-            Quick fill
-          </div>
-          <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5, marginBottom: 10 }}>
-            One-tap restore Vasco's known facts (age 14, Singapore, hobbies, goals).
-            Won't touch API keys, streaks, inside jokes, or learned tactics.
-          </div>
-          <button onClick={restoreVascoDefaults} style={{
-            ...primary,
-            background: C.teal + '22', color: C.teal,
-            border: `1px solid ${C.teal}55`,
-          }}>
-            ⭐ Restore Vasco's defaults
-          </button>
-        </div>
 
         <div style={{ marginTop: 32, paddingTop: 24, borderTop: `1px solid ${C.border}` }}>
           <div style={{ fontSize: 10, color: C.muted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>

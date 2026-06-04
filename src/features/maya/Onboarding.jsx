@@ -21,7 +21,7 @@ const MAYA_QUESTIONS = [
   {
     key: 'q1',
     text: "Hey! I'm Maya — your coach. What's your name, age, and where are you from?",
-    placeholder: "e.g. I'm Alex, 11, from Singapore (Grade 6)",
+    placeholder: "e.g. I'm Alex, 11, from London (Year 7)",
   },
   {
     key: 'q2',

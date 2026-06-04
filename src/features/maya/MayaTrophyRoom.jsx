@@ -1,10 +1,11 @@
 /**
- * Trophy Room — Vasco's complete achievement history.
- * Pre-loaded from CV + user can add new ones.
+ * Trophy Room — the kid's achievement history.
+ * Shows user-added entries. For the seed user (Vasco), pre-loads from CV seed.
  */
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CV_ACHIEVEMENTS } from './lib/cvData'
+import { loadProfile } from './lib/profile'
 
 const C = {
   bg: '#0a0a14', surface: 'rgba(255,255,255,0.04)', surfaceLight: 'rgba(255,255,255,0.07)',
@@ -66,10 +67,17 @@ export default function MayaTrophyRoom() {
   const [filterCat, setFilterCat] = useState('all')
   const [filterYear, setFilterYear] = useState('all')
 
+  // Only seed the CV achievements for the original user (Vasco). Any other
+  // profile starts with an empty Trophy Room and adds their own.
+  const seedAchievements = useMemo(() => {
+    const name = (loadProfile().name || '').trim().toLowerCase()
+    return name === 'vasco' ? CV_ACHIEVEMENTS : []
+  }, [])
+
   const allAchievements = useMemo(() => {
-    const combined = [...CV_ACHIEVEMENTS, ...custom.map(c => ({ ...c, isCustom: true }))]
+    const combined = [...seedAchievements, ...custom.map(c => ({ ...c, isCustom: true }))]
     return combined.sort((a, b) => b.year - a.year || a.name.localeCompare(b.name))
-  }, [custom])
+  }, [custom, seedAchievements])
 
   const filtered = useMemo(() => {
     let list = allAchievements

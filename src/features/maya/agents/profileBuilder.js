@@ -165,7 +165,15 @@ function extractWithKeywords(answers) {
   if (gradeMatch) result.grade = gradeMatch[1]
 
   // Location — match common cities/countries (lightweight, opt-in via Claude path for full accuracy)
-  const LOCATIONS = ['Singapore','London','New York','Hong Kong','Tokyo','Sydney','Melbourne','Dubai','Mumbai','Paris','Berlin','Toronto','Vancouver','Seoul','Beijing','Shanghai','Bangkok','Jakarta','Manila','Auckland']
+  const LOCATIONS = [
+    'Singapore','London','New York','Hong Kong','Tokyo','Sydney','Melbourne','Dubai','Mumbai','Paris','Berlin','Toronto','Vancouver','Seoul','Beijing','Shanghai','Bangkok','Jakarta','Manila','Auckland',
+    'São Paulo','Rio de Janeiro','Mexico City','Buenos Aires','Lima','Bogotá',
+    'Cairo','Lagos','Nairobi','Johannesburg','Cape Town','Casablanca',
+    'Istanbul','Riyadh','Tel Aviv','Doha','Abu Dhabi',
+    'Madrid','Amsterdam','Stockholm','Zurich','Vienna','Dublin','Lisbon','Warsaw','Prague','Rome',
+    'Los Angeles','Chicago','Boston','Seattle','Miami','Houston','San Francisco','Washington','Atlanta','Montreal',
+    'Delhi','Bengaluru','Chennai','Kolkata','Karachi','Lahore','Dhaka','Ho Chi Minh City','Kuala Lumpur','Taipei',
+  ]
   const locHit = LOCATIONS.find(l => new RegExp(`\\b${l}\\b`, 'i').test(allText))
   if (locHit) result.location = locHit
 
