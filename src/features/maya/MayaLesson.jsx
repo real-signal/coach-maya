@@ -284,10 +284,9 @@ export default function MayaLesson() {
           setPhase('transcribing')
           maya.speakText('Transcribing the lesson with Whisper. One sec.')
           whisperTranscript = await transcribeWithWhisper(audioBlob, openaiKey, {
-            prompt: `This is a ${subject} lesson for a 12-year-old student.`,
+            prompt: `This is a ${subject} lesson for a ${profile.age || 12}-year-old student.`,
             language: 'en',
           })
-          console.log('[Whisper] transcribed', whisperTranscript.length, 'chars')
         } catch (e) {
           console.error('Whisper failed:', e)
           setMicError(`Whisper failed: ${e.message}`)
@@ -1072,6 +1071,7 @@ export default function MayaLesson() {
 }
 
 function Stats({ lesson }) {
+  if (!lesson?.fullTranscript) return null
   const concepts = extractConcepts(lesson.fullTranscript).slice(0, 3)
   return (
     <div>
