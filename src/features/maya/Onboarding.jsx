@@ -64,17 +64,42 @@ function getMayaQuestion(index, answers) {
   return questions[index]
 }
 
+const DRAFT_KEY = 'maya_onboarding_draft'
+
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object') return null
+    return parsed
+  } catch { return null }
+}
+
+function saveDraft(draft) {
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(draft)) } catch {}
+}
+
+function clearDraft() {
+  try { localStorage.removeItem(DRAFT_KEY) } catch {}
+}
+
 export default function Onboarding() {
-  const [messages, setMessages] = useState([
-    { from: 'maya', text: getMayaQuestion(0, {}) },
-  ])
+  // Restore mid-flow state if user refreshed during onboarding.
+  const draft = typeof window !== 'undefined' ? loadDraft() : null
+
+  const [messages, setMessages] = useState(() => {
+    if (draft?.messages?.length) return draft.messages
+    return [{ from: 'maya', text: getMayaQuestion(0, {}) }]
+  })
   const [input, setInput] = useState('')
-  const [questionIndex, setQuestionIndex] = useState(0)
-  const [answers, setAnswers] = useState({})
+  const [questionIndex, setQuestionIndex] = useState(draft?.questionIndex ?? 0)
+  const [answers, setAnswers] = useState(draft?.answers ?? {})
   const [building, setBuilding] = useState(false)
   const [summary, setSummary] = useState(null)
   const [parentPin, setParentPin] = useState('')
   const [showPinStep, setShowPinStep] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
 
@@ -85,6 +110,15 @@ export default function Onboarding() {
   useEffect(() => {
     inputRef.current?.focus()
   }, [questionIndex, showPinStep])
+
+  // Checkpoint progress to localStorage on each answered question so refresh
+  // doesn't wipe the chat. Only persist while still in the Q&A phase — once
+  // summary is built, finishSetup() will commit + clear the draft.
+  useEffect(() => {
+    if (summary || showPinStep) return
+    if (questionIndex === 0 && Object.keys(answers).length === 0) return
+    saveDraft({ messages, questionIndex, answers })
+  }, [messages, questionIndex, answers, summary, showPinStep])
 
   const sendAnswer = async () => {
     const text = input.trim()
@@ -148,7 +182,10 @@ export default function Onboarding() {
           text: "Something went wrong building your profile. Let's just get started — you can set things up later in Settings.",
         }])
         setTimeout(() => {
-          saveProfile({ ...loadProfile(), setupComplete: true, setupAt: new Date().toISOString() })
+          try {
+            saveProfile({ ...loadProfile(), setupComplete: true, setupAt: new Date().toISOString() })
+          } catch {}
+          clearDraft()
           window.location.href = '/'
         }, 2000)
       }
@@ -171,12 +208,18 @@ export default function Onboarding() {
           .map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16)
       } catch {}
     }
-    saveProfile(profile)
 
-    // Save generated schedule
+    // Commit schedule first (less critical to revert), then profile.
+    // If either throws (quota), surface an error instead of silently redirecting.
     try {
       localStorage.setItem('maya_schedule', JSON.stringify(summary.schedule))
-    } catch {}
+      saveProfile(profile)
+    } catch (e) {
+      setSaveError(`Couldn't save your setup (${e?.name || 'storage error'}). Free up space and try again.`)
+      return
+    }
+
+    clearDraft()
 
     setMessages(prev => [...prev, {
       from: 'maya',
@@ -284,6 +327,11 @@ export default function Onboarding() {
             <div style={{ fontSize: 10, color: C.dim, textAlign: 'center', marginTop: 8 }}>
               {parentPin.length === 4 ? 'PIN set. Parent will use this to access reports.' : 'You can set a PIN later in settings.'}
             </div>
+            {saveError && (
+              <div style={{ fontSize: 11, color: '#F87171', textAlign: 'center', marginTop: 8 }}>
+                {saveError}
+              </div>
+            )}
           </div>
         ) : !isWaiting && questionIndex < MAYA_QUESTIONS.length ? (
           <div style={{ display: 'flex', gap: 8 }}>
@@ -311,7 +359,10 @@ export default function Onboarding() {
           <div style={{ textAlign: 'center', marginTop: 12 }}>
             <button
               onClick={() => {
-                saveProfile({ ...loadProfile(), setupComplete: true, setupAt: new Date().toISOString() })
+                try {
+                  saveProfile({ ...loadProfile(), setupComplete: true, setupAt: new Date().toISOString() })
+                } catch {}
+                clearDraft()
                 window.location.href = '/'
               }}
               style={{
