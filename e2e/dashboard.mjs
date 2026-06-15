@@ -12,12 +12,12 @@ const URL = `${BASE_URL}/`
 const { page, check, finish } = await launch()
 
 console.log(`\n=== Loading ${URL} (fresh device, DEFAULT_PROFILE = Vasco) ===`)
-await page.goto(URL, { waitUntil: 'networkidle2', timeout: 30000 })
+await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 45000 })
 // Clear and reload so we land in the true "first boot" state
 await page.evaluate(() => { try { localStorage.clear() } catch {} })
-await page.reload({ waitUntil: 'networkidle2' })
+await page.reload({ waitUntil: 'domcontentloaded', timeout: 45000 })
 // Boot screen has a 400ms fade; give the dashboard time to mount
-await new Promise(r => setTimeout(r, 2500))
+await new Promise(r => setTimeout(r, 3000))
 
 const state = await page.evaluate(() => {
   const bodyText = document.body.innerText

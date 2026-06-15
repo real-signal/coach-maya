@@ -84,5 +84,7 @@ export async function launch({ viewport = { width: 414, height: 896 } } = {}) {
 /** Clear localStorage + reload, so tests start from a clean slate. */
 export async function resetStorage(page) {
   await page.evaluate(() => { try { localStorage.clear() } catch {} })
-  await page.reload({ waitUntil: 'networkidle2' })
+  // domcontentloaded (not networkidle2) so we don't hang behind background
+  // API calls on a cold-cache Vercel preview URL.
+  await page.reload({ waitUntil: 'domcontentloaded', timeout: 45000 })
 }

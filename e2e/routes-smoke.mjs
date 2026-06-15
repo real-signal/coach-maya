@@ -36,12 +36,12 @@ await page.evaluate(() => { try { localStorage.clear() } catch {} })
 
 for (const route of ROUTES) {
   const url = `${BASE_URL}${route}`
-  const beforeErrors = await page.evaluate(() => 0) // marker only; real tally is global
-  const errCountBefore = global._routeSnapshot ?? 0
-
   try {
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 20000 })
-    await new Promise(r => setTimeout(r, 800))
+    // domcontentloaded is enough to know the SPA shell + the lazy chunk
+    // mounted; networkidle2 can hang behind background API calls on a
+    // cold-cache preview deploy.
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 })
+    await new Promise(r => setTimeout(r, 1500))
     const ok = await page.evaluate(() => {
       // A rendered React page has SOME text in body. A blank lazy-chunk
       // failure leaves <div id="root"></div> empty.

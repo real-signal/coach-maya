@@ -12,10 +12,10 @@ const URL = `${BASE_URL}/onboarding`
 const { page, check, finish } = await launch()
 
 console.log(`\n=== Loading ${URL} ===`)
-await page.goto(URL, { waitUntil: 'networkidle2', timeout: 30000 })
+await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 45000 })
 await page.evaluate(() => { try { localStorage.clear() } catch {} })
-await page.reload({ waitUntil: 'networkidle2' })
-await new Promise(r => setTimeout(r, 1200))
+await page.reload({ waitUntil: 'domcontentloaded', timeout: 45000 })
+await new Promise(r => setTimeout(r, 1500))
 
 const partial = [
   "I'm Sam, 12, from Tokyo",
@@ -50,8 +50,8 @@ check('Draft questionIndex === 3 (next is Q4)',
   String(beforeReload.draft?.questionIndex))
 
 console.log('\n=== Hard-reloading page ===')
-await page.reload({ waitUntil: 'networkidle2' })
-await new Promise(r => setTimeout(r, 1500))
+await page.reload({ waitUntil: 'domcontentloaded', timeout: 45000 })
+await new Promise(r => setTimeout(r, 2000))
 
 const afterReload = await page.evaluate(() => {
   const userMsgs = Array.from(document.querySelectorAll('div'))

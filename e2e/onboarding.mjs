@@ -11,9 +11,9 @@ const URL = `${BASE_URL}/onboarding`
 const { page, check, finish } = await launch()
 
 console.log(`\n=== Loading ${URL} ===`)
-await page.goto(URL, { waitUntil: 'networkidle2', timeout: 30000 })
+await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 45000 })
 await resetStorage(page)
-await new Promise(r => setTimeout(r, 1200))
+await new Promise(r => setTimeout(r, 1500))
 
 const initial = await page.evaluate(() => {
   const input = document.querySelector('input')
