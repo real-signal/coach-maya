@@ -1,86 +1,18 @@
 /**
- * End-to-end onboarding click-through.
+ * onboarding.mjs — full conversational onboarding click-through.
  *
- * Drives a real Chrome via puppeteer-core, walks through all 5 onboarding
- * questions, sets a parent PIN, and verifies:
- *   - profile extracted correctly (name / age / hobbies / subjects)
- *   - schedule generated and persisted
- *   - mid-flow draft was checkpointed and then cleared on completion
- *   - PIN hash stored
- *   - no console errors, no failed requests
- *
- * Usage:
- *   npm run e2e                       # tests prod (coachmaya.vercel.app)
- *   URL=http://localhost:5173 npm run e2e   # tests local dev
- *   CHROME=/path/to/chrome npm run e2e      # override Chrome path
- *
- * Requires Google Chrome (or Chromium) installed on the host machine.
- * Exits non-zero on any failure so CI can gate on it.
+ * Walks all 5 questions, sets a PIN, verifies: Claude extracts profile fields
+ * correctly, schedule is generated, mid-flow draft is checkpointed and then
+ * cleared on completion, PIN is hashed. Asserts zero console errors.
  */
-import puppeteer from 'puppeteer-core'
-import { existsSync } from 'node:fs'
+import { BASE_URL, launch, resetStorage } from './_helpers.mjs'
 
-// Resolve a Chrome executable across macOS / Linux / Windows
-function resolveChrome() {
-  if (process.env.CHROME) return process.env.CHROME
-  const candidates = [
-    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    '/Applications/Chromium.app/Contents/MacOS/Chromium',
-    '/usr/bin/google-chrome',
-    '/usr/bin/chromium',
-    '/usr/bin/chromium-browser',
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-  ]
-  return candidates.find(p => existsSync(p))
-}
+const URL = `${BASE_URL}/onboarding`
+const { page, check, finish } = await launch()
 
-const CHROME = resolveChrome()
-if (!CHROME) {
-  console.error('❌ Could not find Chrome/Chromium. Set CHROME=/path/to/chrome.')
-  process.exit(2)
-}
-
-const URL = process.env.URL || 'https://coachmaya.vercel.app'
-const ONBOARDING_URL = URL.replace(/\/$/, '') + '/onboarding'
-
-const errors = []
-const requestFails = []
-let failures = 0
-
-function check(label, ok, detail) {
-  if (ok) {
-    console.log(`  ✅ ${label}${detail ? ' — ' + detail : ''}`)
-  } else {
-    console.log(`  ❌ ${label}${detail ? ' — ' + detail : ''}`)
-    failures++
-  }
-}
-
-const browser = await puppeteer.launch({
-  executablePath: CHROME,
-  headless: 'new',
-  args: ['--no-sandbox'],
-})
-
-const page = await browser.newPage()
-await page.setViewport({ width: 414, height: 896 })
-
-page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()) })
-page.on('pageerror', e => errors.push(`PAGEERROR: ${e.message}`))
-page.on('requestfailed', r => {
-  const u = r.url()
-  if (u.includes('chrome-extension')) return
-  requestFails.push(`${r.failure()?.errorText}: ${u}`)
-})
-
-console.log(`\n=== Loading ${ONBOARDING_URL} ===`)
-await page.goto(ONBOARDING_URL, { waitUntil: 'networkidle2', timeout: 30000 })
-// Start with a clean slate so re-runs don't restore stale drafts/profiles
-await page.evaluate(() => {
-  try { localStorage.clear() } catch {}
-})
-await page.reload({ waitUntil: 'networkidle2' })
+console.log(`\n=== Loading ${URL} ===`)
+await page.goto(URL, { waitUntil: 'networkidle2', timeout: 30000 })
+await resetStorage(page)
 await new Promise(r => setTimeout(r, 1200))
 
 const initial = await page.evaluate(() => {
@@ -100,10 +32,7 @@ check('Chat input rendered', initial.hasInput)
 check('MEET MAYA header visible', initial.visibleMaya)
 check('Q1 placeholder present', !!initial.placeholder, initial.placeholder)
 
-if (!initial.hasInput) {
-  await browser.close()
-  process.exit(1)
-}
+if (!initial.hasInput) await finish()
 
 const answers = [
   "I'm Alex, 11, from London",
@@ -118,10 +47,7 @@ for (let i = 0; i < answers.length; i++) {
   await page.waitForSelector('input:not([type="tel"])', { visible: true, timeout: 8000 })
     .catch(() => null)
   const input = await page.$('input:not([type="tel"])')
-  if (!input) {
-    check(`Q${i + 1} input visible`, false)
-    break
-  }
+  if (!input) { check(`Q${i + 1} input visible`, false); break }
   await input.click({ clickCount: 3 })
   await input.type(answers[i], { delay: 20 })
   await page.keyboard.press('Enter')
@@ -189,15 +115,4 @@ if (pinAppeared) {
   }
 }
 
-console.log('\n=== Console errors ===')
-if (errors.length === 0) console.log('  ✅ (none)')
-else { errors.forEach(e => console.log('  ❌', e)); failures += errors.length }
-
-console.log('\n=== Failed requests ===')
-if (requestFails.length === 0) console.log('  ✅ (none)')
-else { requestFails.forEach(r => console.log('  ❌', r)); failures += requestFails.length }
-
-await browser.close()
-
-console.log(`\n=== ${failures === 0 ? '✅ ALL CHECKS PASSED' : '❌ ' + failures + ' FAILURE(S)'} ===`)
-process.exit(failures === 0 ? 0 : 1)
+await finish()

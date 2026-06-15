@@ -1,23 +1,28 @@
 name: e2e
 
-# Runs the onboarding click-through against whichever URL Vercel just deployed.
+# Runs e2e click-throughs against whichever URL Vercel just deployed.
 # Vercel posts a deployment_status event to GitHub when each deploy finishes;
-# we hook into the "success" state and aim our e2e at the target URL.
-# Failures show up as a red check on the commit/PR.
+# we hook into the "success" state and fan out one job per test (parallel,
+# isolated failures, individual red ❌ checks).
 on:
   deployment_status:
 
 jobs:
-  onboarding:
-    # Only run on successful Vercel deploys (skip pending/error/inactive states
-    # and any deployments that didn't come from Vercel).
+  e2e:
     if: >-
       github.event.deployment_status.state == 'success' &&
       contains(github.event.deployment_status.environment_url, 'vercel.app')
     runs-on: ubuntu-latest
-    # 5m was too tight: real e2e finishes ~4m45s on first run (npm ci + Claude
-    # round-trips + 5 chat turns), leaving no headroom for teardown.
     timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        test:
+          - onboarding
+          - dashboard
+          - routes
+          - draft
+    name: e2e (${{ matrix.test }})
     steps:
       - uses: actions/checkout@v4
 
@@ -29,10 +34,8 @@ jobs:
       - name: Install deps
         run: npm ci
 
-      - name: Run onboarding e2e against deploy
+      - name: Run e2e:${{ matrix.test }} against deploy
         env:
           URL: ${{ github.event.deployment_status.environment_url }}
-          # ubuntu-latest ships Google Chrome at /usr/bin/google-chrome; the
-          # e2e script auto-detects it but we pin it for clarity / fail-fast.
           CHROME: /usr/bin/google-chrome
-        run: npm run e2e
+        run: npm run e2e:${{ matrix.test }}
