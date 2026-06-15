@@ -1,0 +1,36 @@
+name: e2e
+
+# Runs the onboarding click-through against whichever URL Vercel just deployed.
+# Vercel posts a deployment_status event to GitHub when each deploy finishes;
+# we hook into the "success" state and aim our e2e at the target URL.
+# Failures show up as a red check on the commit/PR.
+on:
+  deployment_status:
+
+jobs:
+  onboarding:
+    # Only run on successful Vercel deploys (skip pending/error/inactive states
+    # and any deployments that didn't come from Vercel).
+    if: >-
+      github.event.deployment_status.state == 'success' &&
+      contains(github.event.deployment_status.environment_url, 'vercel.app')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Run onboarding e2e against deploy
+        env:
+          URL: ${{ github.event.deployment_status.environment_url }}
+          # ubuntu-latest ships Google Chrome at /usr/bin/google-chrome; the
+          # e2e script auto-detects it but we pin it for clarity / fail-fast.
+          CHROME: /usr/bin/google-chrome
+        run: npm run e2e
