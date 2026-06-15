@@ -29,12 +29,25 @@ for (let i = 0; i < partial.length; i++) {
     .catch(() => null)
   const input = await page.$('input:not([type="tel"])')
   if (!input) { check(`Q${i + 1} input visible`, false); break }
+  const placeholderBefore = await page.$eval('input:not([type="tel"])', el => el.placeholder)
   await input.click({ clickCount: 3 })
   await input.type(partial[i], { delay: 20 })
   await page.keyboard.press('Enter')
   console.log(`  → Q${i + 1}: "${partial[i]}"`)
-  await new Promise(r => setTimeout(r, 1200))
+  // Onboarding.jsx advances questionIndex inside a 600ms setTimeout after
+  // saving the answer. Don't snapshot the draft until we've SEEN the next
+  // question's placeholder appear, otherwise we race the state update.
+  await page.waitForFunction(
+    (prev) => {
+      const el = document.querySelector('input:not([type="tel"])')
+      return el && el.placeholder !== prev
+    },
+    { timeout: 8000 },
+    placeholderBefore,
+  ).catch(() => null)
 }
+// Give the draft-saving useEffect one more tick to flush.
+await new Promise(r => setTimeout(r, 500))
 
 // Snapshot draft BEFORE reload
 const beforeReload = await page.evaluate(() => {
@@ -51,7 +64,11 @@ check('Draft questionIndex === 3 (next is Q4)',
 
 console.log('\n=== Hard-reloading page ===')
 await page.reload({ waitUntil: 'domcontentloaded', timeout: 45000 })
-await new Promise(r => setTimeout(r, 2000))
+// domcontentloaded fires before React mounts; wait for the chat input
+// to come back so we know the draft restore has actually run.
+await page.waitForSelector('input:not([type="tel"])', { visible: true, timeout: 15000 })
+  .catch(() => null)
+await new Promise(r => setTimeout(r, 1500))
 
 const afterReload = await page.evaluate(() => {
   const userMsgs = Array.from(document.querySelectorAll('div'))
