@@ -15,7 +15,9 @@ jobs:
       github.event.deployment_status.state == 'success' &&
       contains(github.event.deployment_status.environment_url, 'vercel.app')
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # 5m was too tight: real e2e finishes ~4m45s on first run (npm ci + Claude
+    # round-trips + 5 chat turns), leaving no headroom for teardown.
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
 
