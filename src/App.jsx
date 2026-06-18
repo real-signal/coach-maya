@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { MayaProvider } from './features/maya/context/MayaContext'
 import CommandBar from './features/maya/components/CommandBar'
 import AchievementModal from './features/maya/components/AchievementModal'
@@ -8,11 +8,13 @@ import BottomNav from './features/maya/components/BottomNav'
 import VoiceFab from './features/maya/components/VoiceFab'
 import QuizHUD from './features/maya/components/QuizHUD'
 import ErrorBoundary from './features/maya/components/ErrorBoundary'
-import { loadProfile } from './features/maya/lib/profile'
+import { loadProfile, PRODUCT_MODE } from './features/maya/lib/profile'
 import { registerServiceWorker, scheduleDailyNotifications, getPermission } from './lib/push'
 
 // Eager: dashboard (needed immediately)
 import MayaDashboard from './features/maya/MayaDashboard'
+// Eager: product-mode landing (gated by PRODUCT_MODE, lightweight)
+import ProductLanding from './features/maya/ProductLanding'
 
 // Lazy: everything else (shrinks initial bundle)
 const MayaSchedule = lazy(() => import('./features/maya/MayaSchedule'))
@@ -62,6 +64,8 @@ const MayaBriefing = lazy(() => import('./features/maya/MayaBriefing'))
 const MayaNotebook = lazy(() => import('./features/maya/MayaNotebook'))
 const MayaNotes = lazy(() => import('./features/maya/MayaNotes'))
 const MayaBrilliant = lazy(() => import('./features/maya/MayaBrilliant'))
+const MayaOlympiad = lazy(() => import('./features/maya/MayaOlympiad'))
+const MayaParentReport = lazy(() => import('./features/maya/MayaParentReport'))
 
 function Loading() {
   return (
@@ -78,7 +82,24 @@ function Loading() {
 
 function GatedRoutes() {
   const profile = loadProfile()
+  const location = useLocation()
   const [cmdOpen, setCmdOpen] = useState(false)
+
+  // PRODUCT_MODE: public-product builds start with an empty profile
+  // (setupComplete=false). Allowed routes for pre-setup users are `/`
+  // (marketing landing) and `/onboarding` (the chat flow). Everything else
+  // bounces back to the landing so they can't poke around an empty app.
+  // Vasco's deploy (no env var set) skips this entirely.
+  const PUBLIC_PRE_SETUP = new Set(['/', '/onboarding'])
+  if (
+    PRODUCT_MODE &&
+    !profile.setupComplete &&
+    !PUBLIC_PRE_SETUP.has(location.pathname)
+  ) {
+    return <Navigate to="/" replace />
+  }
+
+  const showLanding = PRODUCT_MODE && !profile.setupComplete
 
   useEffect(() => {
     const handler = (e) => {
@@ -97,7 +118,7 @@ function GatedRoutes() {
       <Suspense fallback={<Loading />}>
         <Routes>
           <Route path="/onboarding" element={<Onboarding />} />
-          <Route path="/" element={<MayaDashboard onOpenSearch={() => setCmdOpen(true)} />} />
+          <Route path="/" element={showLanding ? <ProductLanding /> : <MayaDashboard onOpenSearch={() => setCmdOpen(true)} />} />
           <Route path="/schedule" element={<MayaSchedule />} />
           <Route path="/profile" element={<MayaProfile />} />
           <Route path="/parent" element={<MayaParent />} />
@@ -144,15 +165,21 @@ function GatedRoutes() {
           <Route path="/notebook" element={<MayaNotebook />} />
           <Route path="/notes" element={<MayaNotes />} />
           <Route path="/brilliant" element={<MayaBrilliant />} />
+          <Route path="/olympiad" element={<MayaOlympiad />} />
+          <Route path="/report" element={<MayaParentReport />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
-      <CommandBar open={cmdOpen} onClose={() => setCmdOpen(false)} />
-      <AchievementModal />
-      <LiveLessonBanner />
-      <QuizHUD />
-      <BottomNav />
-      <VoiceFab />
+      {!showLanding && (
+        <>
+          <CommandBar open={cmdOpen} onClose={() => setCmdOpen(false)} />
+          <AchievementModal />
+          <LiveLessonBanner />
+          <QuizHUD />
+          <BottomNav />
+          <VoiceFab />
+        </>
+      )}
     </>
   )
 }
