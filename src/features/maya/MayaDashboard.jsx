@@ -95,7 +95,9 @@ export default function MayaDashboard({ onOpenSearch }) {
         const name = profile?.name || 'Champ'
         maya.speakText(`Hey ${name}. Let's get started.`)
       }
-      localStorage.setItem(todayKey, '1')
+      // Inside-try equivalent: if quota is exceeded the flag silently won't
+      // persist (greeting fires again tomorrow — fine), but no throw escapes.
+      try { localStorage.setItem(todayKey, '1') } catch {}
     }, 1500)
     return () => clearTimeout(t)
   }, [])

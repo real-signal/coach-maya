@@ -718,13 +718,19 @@ function MayaProvider({ children }) {
   // Schedule Tick (every 5 min)
   useEffect(() => {
     tickRef.current = setInterval(async () => {
-      const result = await handleScheduleTick({
-        tasks: state.tasks,
-        gamification: state.gamification,
-        lastActivityTime: state.lastActivityTime,
-      }, state.personalityContext)
-      if (result.messages.length > 0) {
-        dispatch({ type: 'ADD_MESSAGES', payload: result.messages })
+      // Wrap the async body: a Claude API blip here would otherwise fire an
+      // unhandledRejection every 5 minutes for the rest of the session.
+      try {
+        const result = await handleScheduleTick({
+          tasks: state.tasks,
+          gamification: state.gamification,
+          lastActivityTime: state.lastActivityTime,
+        }, state.personalityContext)
+        if (result.messages.length > 0) {
+          dispatch({ type: 'ADD_MESSAGES', payload: result.messages })
+        }
+      } catch (err) {
+        noteHandlerError('scheduleTick', err)
       }
     }, 5 * 60 * 1000)
     return () => clearInterval(tickRef.current)
