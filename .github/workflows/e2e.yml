@@ -11,7 +11,7 @@ jobs:
   e2e:
     if: >-
       github.event.deployment_status.state == 'success' &&
-      contains(github.event.deployment_status.environment_url, 'coachmaya')
+      contains(github.event.deployment_status.environment_url, 'coach-maya')
     runs-on: ubuntu-latest
     timeout-minutes: 8
     strategy:
