@@ -12,7 +12,7 @@
  * without losing the underlying signal.
  */
 
-import { getApiKey } from '../lib/secrets'
+import { callClaude, canCallClaude, textFromResponse } from '../lib/anthropicClient'
 import { loadProfile } from '../lib/profile'
 import { getIntelSummary } from './intelligence'
 import { getQuizStats } from './quizHistory'
@@ -64,8 +64,7 @@ async function generateCoachingMemo(opts = {}) {
 
   const facts = buildFactSheet({ profile, intel, quiz, ...opts })
 
-  const apiKey = getApiKey('anthropic')
-  if (!apiKey) {
+  if (!canCallClaude()) {
     return persistMemo(buildTemplateMemo({ name, facts, quiz, intel }))
   }
 
@@ -85,24 +84,13 @@ Use the facts below. If a category is empty, omit that array. Never invent detai
   const userPrompt = `Facts about ${name} this week:\n\n${facts}\n\nWrite the memo.`
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: getModel(),
-        max_tokens: 800,
-        system,
-        messages: [{ role: 'user', content: userPrompt }],
-      }),
+    const data = await callClaude({
+      model: getModel(),
+      max_tokens: 800,
+      system,
+      messages: [{ role: 'user', content: userPrompt }],
     })
-    if (!res.ok) throw new Error(`Claude ${res.status}`)
-    const data = await res.json()
-    const text = data.content?.[0]?.text || ''
+    const text = textFromResponse(data)
     const memo = parseMemoJson(text) || buildTemplateMemo({ name, facts, quiz, intel })
     return persistMemo(memo)
   } catch {

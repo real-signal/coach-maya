@@ -10,28 +10,18 @@
  *  - "Explain to a friend" challenge
  */
 
-import { getApiKey } from '../lib/secrets'
+import { callClaude, canCallClaude, textFromResponse } from '../lib/anthropicClient'
 
 async function generateStudyGuide(transcript, subject) {
-  const apiKey = getApiKey('anthropic')
-
-  if (!apiKey) {
+  if (!canCallClaude()) {
     return { ...heuristicGuide(transcript, subject), _source: 'heuristic', _offline: true }
   }
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1500,
-        system: `You are Maya, a sarcastic but encouraging AI coach for a kid. Generate a study guide from his lesson transcript. Be concise, use simple language, make it engaging. Return STRICT JSON only (no markdown fences):
+    const data = await callClaude({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1500,
+      system: `You are Maya, a sarcastic but encouraging AI coach for a kid. Generate a study guide from his lesson transcript. Be concise, use simple language, make it engaging. Return STRICT JSON only (no markdown fences):
 {
   "summary": "3-5 sentence summary of the lesson",
   "keyConcepts": ["concept 1", "concept 2", ...],
@@ -44,16 +34,12 @@ async function generateStudyGuide(transcript, subject) {
   "explainChallenge": "Explain X to a friend who missed this lesson — in 30 seconds",
   "mayaNote": "1-2 sentence sarcastic-encouraging note from Maya about this lesson"
 }`,
-        messages: [{
-          role: 'user',
-          content: `Subject: ${subject}\n\nFull lesson transcript:\n${transcript.slice(0, 8000)}`
-        }],
-      }),
+      messages: [{
+        role: 'user',
+        content: `Subject: ${subject}\n\nFull lesson transcript:\n${transcript.slice(0, 8000)}`
+      }],
     })
-
-    if (!res.ok) throw new Error(`API ${res.status}`)
-    const data = await res.json()
-    const text = data.content[0].text
+    const text = textFromResponse(data)
     const parsed = JSON.parse(text.replace(/```json|```/g, '').trim())
     return { ...parsed, _source: 'claude' }
   } catch (e) {

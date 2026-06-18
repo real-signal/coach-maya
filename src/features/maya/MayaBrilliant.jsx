@@ -14,7 +14,7 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMaya } from './context/MayaContext'
 import { loadProfile } from './lib/profile'
-import { getApiKey } from './lib/secrets'
+import { callClaude, canCallClaude, textFromResponse } from './lib/anthropicClient'
 import { getCatalog } from './lib/brilliantCatalog'
 import {
   logSession,
@@ -135,8 +135,7 @@ export default function MayaBrilliant() {
       setWalkErr('That looks pasted — rephrase it in your own words. Maya coaches your thinking, not the original problem.')
       return
     }
-    const apiKey = getApiKey('anthropic')
-    if (!apiKey) {
+    if (!canCallClaude()) {
       setWalkResp(
         `Without my brain online I can only ask: where exactly does your approach break?\n\n` +
         `You said you tried: "${walkTried || '(nothing yet)'}"\n\n` +
@@ -151,24 +150,13 @@ export default function MayaBrilliant() {
       const system = `You are Maya, an elite junior-coach. ${name} is working through a problem on Brilliant.org. They described the problem and their attempt IN THEIR OWN WORDS — do not assume you've seen the original. Your job is to coach their THINKING, not solve the problem. Short, sharp, Socratic. 2-4 sentences max. Pose 1 sharp follow-up question. Hobbies for analogies if useful: ${hobbies}. Never lecture. Never give a full solution — guide the next step only.`
       const userPrompt = `Problem (in my words): ${problem}\n\nWhat I tried: ${walkTried || '(nothing yet)'}\n\nCoach me through the next step.`
 
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: getModel(),
-          max_tokens: 350,
-          system,
-          messages: [{ role: 'user', content: userPrompt }],
-        }),
+      const data = await callClaude({
+        model: getModel(),
+        max_tokens: 350,
+        system,
+        messages: [{ role: 'user', content: userPrompt }],
       })
-      if (!res.ok) throw new Error(`Claude ${res.status}`)
-      const data = await res.json()
-      const text = data.content?.[0]?.text || ''
+      const text = textFromResponse(data)
       setWalkResp(text.trim() || '(empty response)')
     } catch (e) {
       setWalkErr(e?.message || 'Could not reach Maya.')

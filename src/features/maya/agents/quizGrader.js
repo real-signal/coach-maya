@@ -3,30 +3,17 @@
  * Returns { score 0-100, feedback, perQuestion: [{score, note}] }
  */
 
-import { getApiKey } from '../lib/secrets'
+import { callClaude, canCallClaude, textFromResponse } from '../lib/anthropicClient'
 
 async function callClaudeGrader(systemPrompt, userPrompt) {
-  const apiKey = getApiKey('anthropic')
-  if (!apiKey) throw new Error('no key')
-
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 600,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
-    }),
+  if (!canCallClaude()) throw new Error('no key')
+  const data = await callClaude({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 600,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: userPrompt }],
   })
-  if (!res.ok) throw new Error(`API ${res.status}`)
-  const data = await res.json()
-  return data.content[0].text
+  return textFromResponse(data)
 }
 
 /**

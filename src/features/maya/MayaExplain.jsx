@@ -6,7 +6,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { loadProfile } from './lib/profile'
-import { getApiKey } from './lib/secrets'
+import { callClaude, canCallClaude, textFromResponse } from './lib/anthropicClient'
 
 const C = {
   bg: '#0a0a14', surface: 'rgba(255,255,255,0.04)', surfaceLight: 'rgba(255,255,255,0.07)',
@@ -47,42 +47,29 @@ export default function MayaExplain() {
     setLoading(true)
     setHistory(h => [...h, { type: 'user', text: question }])
 
-    const apiKey = getApiKey('anthropic')
     let answer
 
-    if (apiKey) {
+    if (canCallClaude()) {
       try {
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true',
-          },
-          body: JSON.stringify({
-            model: 'claude-sonnet-4-6',
-            max_tokens: 600,
-            system: `You are Maya, explaining things to a kid. Rules:
+        const data = await callClaude({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 600,
+          system: `You are Maya, explaining things to a kid. Rules:
 - Explain like you're a cool older sibling, not a textbook
 - Use analogies he'd understand (gaming, sports, building things)
 - Keep it under 150 words
 - Break complex ideas into 2-3 bullet points
 - End with a "why this matters" one-liner
 - Be slightly sarcastic but make it stick`,
-            messages: [
-              ...history.slice(-6).map(h => ({
-                role: h.type === 'user' ? 'user' : 'assistant',
-                content: h.text,
-              })),
-              { role: 'user', content: `Explain: ${question}` },
-            ],
-          }),
+          messages: [
+            ...history.slice(-6).map(h => ({
+              role: h.type === 'user' ? 'user' : 'assistant',
+              content: h.text,
+            })),
+            { role: 'user', content: `Explain: ${question}` },
+          ],
         })
-        if (res.ok) {
-          const data = await res.json()
-          answer = data.content[0].text
-        } else throw new Error('API error')
+        answer = textFromResponse(data)
       } catch {
         answer = "My brain's offline. Add a Claude API key in Profile so I can actually explain things."
       }

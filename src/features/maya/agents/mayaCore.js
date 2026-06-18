@@ -4,7 +4,7 @@
  * Uses Claude API for generation, with strict voice rules.
  */
 
-import { getApiKey } from '../lib/secrets'
+import { callClaude, canCallClaude, textFromResponse } from '../lib/anthropicClient'
 
 // ─── Maya's System Prompt ───
 const MAYA_SYSTEM_PROMPT = `You are Maya, an AI performance coach. You live on the kid's desk. You are their coach — not their parent, not their teacher. Think elite sports psychologist meets sarcastic older sibling meets startup co-founder.
@@ -300,8 +300,9 @@ function getModelFromProfile() {
 
 async function callClaudeAPI(systemPrompt, userPrompt, history = [], maxTokens = 250) {
   checkRateLimit()
-  const apiKey = getApiKey('anthropic')
-  if (!apiKey) throw new Error('No API key configured')
+  // In PRODUCT_MODE the server proxy holds the key. In Vasco mode we need
+  // a local key. canCallClaude() handles both cases.
+  if (!canCallClaude()) throw new Error('No API key configured')
 
   // Cap inputs to prevent token-bombing via huge user input
   const safeSystem = String(systemPrompt || '').slice(0, 8000)
@@ -311,7 +312,7 @@ async function callClaudeAPI(systemPrompt, userPrompt, history = [], maxTokens =
     content: String(m.content || '').slice(0, 2000),
   }))
 
-  const body = JSON.stringify({
+  const payload = {
     model: getModelFromProfile(),
     max_tokens: Math.min(Math.max(parseInt(maxTokens) || 250, 64), 4096),
     system: safeSystem,
@@ -319,41 +320,20 @@ async function callClaudeAPI(systemPrompt, userPrompt, history = [], maxTokens =
       ...safeHistory,
       { role: 'user', content: safeUser },
     ],
-  })
+  }
 
   // Retry transient errors (5xx, 429) with exponential backoff
   const MAX_RETRIES = 2
   let lastErr
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 30_000)
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body,
-      })
-
-      if (res.ok) {
-        const data = await res.json()
-        return data.content[0].text
-      }
-      // 4xx (except 429) — don't retry, fail fast
-      if (res.status < 500 && res.status !== 429) {
-        throw new Error(`API error: ${res.status}`)
-      }
-      lastErr = new Error(`API error: ${res.status}`)
+      const data = await callClaude(payload, { timeoutMs: 30_000 })
+      return textFromResponse(data)
     } catch (err) {
       lastErr = err
-      // AbortError or network error — also retry
-    } finally {
-      clearTimeout(timeout)
+      // 4xx (except 429) — don't retry, fail fast
+      const status = err?.status
+      if (status && status < 500 && status !== 429) throw err
     }
     if (attempt < MAX_RETRIES) {
       const delay = 500 * Math.pow(2, attempt) + Math.random() * 250

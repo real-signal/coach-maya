@@ -6,7 +6,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMaya } from './context/MayaContext'
 import { loadProfile } from './lib/profile'
-import { getApiKey } from './lib/secrets'
+import { callClaude, canCallClaude, textFromResponse } from './lib/anthropicClient'
 
 const C = {
   bg: '#0a0a14', surface: 'rgba(255,255,255,0.04)', surfaceLight: 'rgba(255,255,255,0.07)',
@@ -47,10 +47,8 @@ export default function MayaHomework() {
     setInput('')
     setLoading(true)
 
-    const apiKey = getApiKey('anthropic')
-
     let reply
-    if (apiKey) {
+    if (canCallClaude()) {
       try {
         const history = messages.map(m => ({
           role: m.role === 'user' ? 'user' : 'assistant',
@@ -58,24 +56,13 @@ export default function MayaHomework() {
         }))
         history.push({ role: 'user', content: `Subject: ${subject}. ${userMsg.text}` })
 
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true',
-          },
-          body: JSON.stringify({
-            model: 'claude-sonnet-4-6',
-            max_tokens: 300,
-            system: SYSTEM_PROMPT,
-            messages: history.slice(-12),
-          }),
+        const data = await callClaude({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 300,
+          system: SYSTEM_PROMPT,
+          messages: history.slice(-12),
         })
-        if (!res.ok) throw new Error(`API ${res.status}`)
-        const data = await res.json()
-        reply = data.content[0].text
+        reply = textFromResponse(data)
       } catch (e) {
         reply = "My brain isn't responding right now. Try again in a sec, or check your Claude API key in Profile."
       }

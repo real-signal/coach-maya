@@ -88,30 +88,17 @@ function sanitizeExtracted(raw) {
 
 // ─── Claude-powered extraction ───
 async function extractWithClaude(transcript) {
-  const { getApiKey } = await import('../lib/secrets')
-  const apiKey = getApiKey('anthropic')
-  if (!apiKey) return null
+  const { callClaude, canCallClaude, textFromResponse } = await import('../lib/anthropicClient')
+  if (!canCallClaude()) return null
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 500,
-        system: EXTRACTION_PROMPT,
-        messages: [{ role: 'user', content: transcript }],
-      }),
+    const data = await callClaude({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 500,
+      system: EXTRACTION_PROMPT,
+      messages: [{ role: 'user', content: transcript }],
     })
-
-    if (!res.ok) return null
-    const data = await res.json()
-    const text = data.content[0].text.trim()
+    const text = textFromResponse(data).trim()
     // Strip markdown code fences if present
     const json = text.replace(/^```json?\n?/, '').replace(/\n?```$/, '')
     const parsed = JSON.parse(json)

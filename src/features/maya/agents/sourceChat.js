@@ -6,7 +6,7 @@
  * because here she's a research assistant, not a coach mid-drill).
  */
 
-import { getApiKey } from '../lib/secrets'
+import { callClaude, canCallClaude, textFromResponse } from '../lib/anthropicClient'
 
 const SYSTEM_PROMPT = `You are Maya, helping the kid study from their own sources. They have uploaded N reference documents — quoted below as <source id="1" name="...">...</source>.
 
@@ -61,8 +61,7 @@ function escapeXml(s) {
  * @param {Array<{role: string, content: string}>} [history]
  */
 async function askWithSources(question, sources, history = []) {
-  const apiKey = getApiKey('anthropic')
-  if (!apiKey) {
+  if (!canCallClaude()) {
     throw new Error('No Claude API key set. Add one in Profile → Maya\'s Brain to use source chat.')
   }
   if (!sources?.length) {
@@ -76,7 +75,7 @@ async function askWithSources(question, sources, history = []) {
     .slice(-8)
     .map(m => ({ role: m.role, content: String(m.content || '').slice(0, 4000) }))
 
-  const body = JSON.stringify({
+  const data = await callClaude({
     model: getModel(),
     max_tokens: 2000,
     system: system.slice(0, 180_000),
@@ -84,32 +83,8 @@ async function askWithSources(question, sources, history = []) {
       ...safeHistory,
       { role: 'user', content: String(question || '').slice(0, 4000) },
     ],
-  })
-
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 60_000)
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body,
-    })
-    if (!res.ok) {
-      let detail = ''
-      try { detail = (await res.text()).slice(0, 200) } catch {}
-      throw new Error(`Claude ${res.status}: ${detail}`)
-    }
-    const data = await res.json()
-    return data.content?.[0]?.text || ''
-  } finally {
-    clearTimeout(timeout)
-  }
+  }, { timeoutMs: 60_000 })
+  return textFromResponse(data)
 }
 
 /**

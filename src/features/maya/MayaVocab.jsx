@@ -5,7 +5,7 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { loadProfile } from './lib/profile'
-import { getApiKey } from './lib/secrets'
+import { callClaude, canCallClaude, textFromResponse } from './lib/anthropicClient'
 
 const C = {
   bg: '#0a0a14', surface: 'rgba(255,255,255,0.04)', surfaceLight: 'rgba(255,255,255,0.07)',
@@ -54,29 +54,16 @@ export default function MayaVocab() {
   const lookUp = async () => {
     if (!form.word.trim()) return
     setDefLoading(true)
-    const apiKey = getApiKey('anthropic')
-    if (apiKey) {
+    if (canCallClaude()) {
       try {
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true',
-          },
-          body: JSON.stringify({
-            model: 'claude-sonnet-4-6',
-            max_tokens: 200,
-            system: 'You help a 12-year-old understand vocabulary. Return JSON only: {"definition":"simple 1-sentence definition","example":"example sentence using the word"}',
-            messages: [{ role: 'user', content: `Define "${form.word}" for a 12-year-old.` }],
-          }),
+        const data = await callClaude({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 200,
+          system: 'You help a 12-year-old understand vocabulary. Return JSON only: {"definition":"simple 1-sentence definition","example":"example sentence using the word"}',
+          messages: [{ role: 'user', content: `Define "${form.word}" for a 12-year-old.` }],
         })
-        if (res.ok) {
-          const data = await res.json()
-          const parsed = JSON.parse(data.content[0].text.replace(/```json|```/g, '').trim())
-          setForm(f => ({ ...f, definition: parsed.definition || '', example: parsed.example || '' }))
-        }
+        const parsed = JSON.parse(textFromResponse(data).replace(/```json|```/g, '').trim())
+        setForm(f => ({ ...f, definition: parsed.definition || '', example: parsed.example || '' }))
       } catch (e) { console.warn('Lookup failed:', e) }
     } else {
       // Free dictionary API fallback

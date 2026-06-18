@@ -8,8 +8,16 @@ import { focusesForToday, adherenceLastNDays, getTrack } from './compassTracks'
 const PROFILE_KEY = 'maya_profile'
 const PROFILE_VERSION = 3
 
-const DEFAULT_PROFILE = {
-  version: PROFILE_VERSION,
+// PRODUCT_MODE: when VITE_PRODUCT_MODE=1, this build is the public product
+// (separate Vercel project) rather than Vasco's personal deploy. The default
+// profile becomes empty + setupComplete:false, which forces every new device
+// through onboarding. Vasco's deploy (no env var set) is unchanged.
+const PRODUCT_MODE =
+  typeof import.meta !== 'undefined' &&
+  import.meta.env &&
+  import.meta.env.VITE_PRODUCT_MODE === '1'
+
+const VASCO_DEFAULTS = {
   // Identity — defaults to Vasco's known profile so any fresh device load
   // (including the public coachmaya.vercel.app deploy) lands directly on his
   // setup instead of an empty 12yo placeholder.
@@ -17,9 +25,7 @@ const DEFAULT_PROFILE = {
   age: 14,
   grade: '9',
   location: 'Singapore',
-  timezone: '',        // IANA timezone (auto-detected on first save)
   pronouns: 'he/him',
-  // Goals & motivation
   bigGoals: [
     'Math olympiad medals',
     'Piano competition wins',
@@ -28,6 +34,29 @@ const DEFAULT_PROFILE = {
   hobbies: ['Tennis', 'Piano', 'Math'],
   favoriteSubjects: ['Maths', 'Science'],
   hardSubjects: [],
+  setupComplete: true,
+}
+
+const PRODUCT_DEFAULTS = {
+  // Public-product first-boot: no identity, onboarding required.
+  name: '',
+  age: null,
+  grade: '',
+  location: '',
+  pronouns: '',
+  bigGoals: [],
+  hobbies: [],
+  favoriteSubjects: [],
+  hardSubjects: [],
+  setupComplete: false,
+}
+
+const IDENTITY_DEFAULTS = PRODUCT_MODE ? PRODUCT_DEFAULTS : VASCO_DEFAULTS
+
+const DEFAULT_PROFILE = {
+  version: PROFILE_VERSION,
+  ...IDENTITY_DEFAULTS,
+  timezone: '',        // IANA timezone (auto-detected on first save)
   // Personality dials
   humorStyle: 'sarcastic',     // sarcastic | playful | dry | wholesome
   pushIntensity: 'hard',       // light | medium | hard
@@ -65,8 +94,8 @@ const DEFAULT_PROFILE = {
     weekStartIso: '',       // monday of the week the goals belong to
     updatedAt: null,        // ISO timestamp of last save
   },
-  // Onboarding — pre-completed since defaults are already Vasco's identity.
-  setupComplete: true,
+  // Onboarding — setupComplete comes from IDENTITY_DEFAULTS above:
+  // true on Vasco's deploy, false on the public product build.
   setupAt: null,
   // Streak
   longestStreak: 0,
@@ -241,6 +270,7 @@ function mostFrequent(arr) {
 
 export {
   DEFAULT_PROFILE,
+  PRODUCT_MODE,
   loadProfile,
   saveProfile,
   updateProfile,
