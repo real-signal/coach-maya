@@ -31,6 +31,18 @@ export default defineConfig({
     // Push the 500KB-chunk warning up so the build log isn't spammy while we
     // keep an eye on real growth.
     chunkSizeWarningLimit: 800,
+    // Strip the three chunk from modulepreload. By default Vite walks the
+    // dynamic-import graph and emits <link rel="modulepreload"> for every
+    // reachable chunk — including the 1095kB three bundle reachable via
+    // MayaAvatar's lazy() import. That defeats the laziness: the browser
+    // fetches three on cold boot whether or not the avatar mounts.
+    // Filtering it out trades a brief avatar fallback for ~300kB gzip off
+    // first-load. Suspense fallbacks (AvatarFallback) cover the gap.
+    modulePreload: {
+      resolveDependencies(_filename, deps) {
+        return deps.filter(d => !/\/three-[^/]+\.js$/.test(d))
+      },
+    },
     rollupOptions: {
       output: {
         // Only split three.js (the heaviest dep) into its own chunk.
