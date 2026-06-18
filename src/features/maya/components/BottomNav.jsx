@@ -1,12 +1,25 @@
 import { useNavigate, useLocation } from 'react-router-dom'
+import { PRODUCT_MODE } from '../lib/profile'
 
-const ITEMS = [
+// Vasco's 5-item nav covers his daily flow across the 48-route app.
+const VASCO_ITEMS = [
   { icon: '🏠', label: 'Home', to: '/' },
   { icon: '📋', label: 'Briefing', to: '/briefing' },
   { icon: '🏆', label: 'Compete', to: '/competitions' },
   { icon: '🎙', label: 'Lesson', to: '/lesson' },
   { icon: '👤', label: 'Me', to: '/profile' },
 ]
+
+// Product-mode nav matches the wedge: olympiad drill (kid daily) + weekly
+// report (parent artifact). Must stay in sync with the allowlist in App.jsx.
+const PRODUCT_ITEMS = [
+  { icon: '🏠', label: 'Home', to: '/' },
+  { icon: '🧮', label: 'Drill', to: '/olympiad' },
+  { icon: '📊', label: 'Report', to: '/report' },
+  { icon: '👤', label: 'Me', to: '/profile' },
+]
+
+const ITEMS = PRODUCT_MODE ? PRODUCT_ITEMS : VASCO_ITEMS
 
 const HIDDEN_ROUTES = ['/onboarding', '/login', '/signup', '/children']
 

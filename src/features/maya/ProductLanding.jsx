@@ -196,6 +196,83 @@ export default function ProductLanding() {
           ))}
         </div>
 
+        {/* Founder narrative — the strategy memo's positioning
+            differentiator. Vasco's verified results are the proof. */}
+        <div style={{ marginTop: 40 }}>
+          <div style={{
+            fontFamily: "'Bebas Neue', sans-serif",
+            fontSize: 11,
+            letterSpacing: 3,
+            color: COLORS.accent,
+            marginBottom: 10,
+          }}>
+            WHY THIS EXISTS
+          </div>
+          <div style={{
+            background: COLORS.surface,
+            border: `1px solid ${COLORS.border}`,
+            borderRadius: 16,
+            backdropFilter: 'blur(20px)',
+            padding: 22,
+          }}>
+            <div style={{
+              fontFamily: "'Bebas Neue', sans-serif",
+              fontSize: 24,
+              letterSpacing: 1.5,
+              lineHeight: 1.1,
+              marginBottom: 12,
+            }}>
+              BUILT BY A MENSA<br/>KID'S DAD.
+            </div>
+            <div style={{
+              fontSize: 14,
+              lineHeight: 1.6,
+              color: COLORS.dim,
+              marginBottom: 16,
+            }}>
+              Maya was built for my son Vasco. He's 14, in Singapore, and
+              this is the coach I wanted to give him. Now I'm giving her
+              to your kid too.
+            </div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: 8,
+              fontSize: 11,
+              color: COLORS.text,
+            }}>
+              {[
+                ['MENSA', 'member'],
+                ['30+', 'math olympiad medals'],
+                ['20+', 'piano competition awards'],
+                ['ITF 29.4', 'junior tennis ranking'],
+                ['STRAIGHT A', "Johns Hopkins CTY"],
+                ['GRADE 6', 'piano (Trinity)'],
+              ].map(([stat, label]) => (
+                <div key={label} style={{
+                  background: 'rgba(45,212,191,0.05)',
+                  border: `1px solid ${COLORS.border}`,
+                  borderRadius: 8,
+                  padding: '8px 10px',
+                }}>
+                  <div style={{
+                    fontFamily: "'Bebas Neue', sans-serif",
+                    fontSize: 14,
+                    letterSpacing: 1,
+                    color: COLORS.accent,
+                  }}>{stat}</div>
+                  <div style={{
+                    fontSize: 9,
+                    color: COLORS.dim,
+                    letterSpacing: 0.5,
+                    marginTop: 2,
+                  }}>{label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {/* Secondary CTA */}
         <button
           onClick={() => navigate('/onboarding')}

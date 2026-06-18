@@ -101,6 +101,15 @@ const DEFAULT_PROFILE = {
   longestStreak: 0,
   currentStreak: 0,
   lastActiveDay: null,
+  // Product-mode safety overrides — a parent's first cold-boot must NOT
+  // trigger a mic ("hey maya" wake word) or camera (presence detection)
+  // permission prompt before they've even tapped anything. Both kill trust.
+  // Kids can opt in later from /profile once they're engaged. Vasco's
+  // deploy keeps the defaults above (both true).
+  ...(PRODUCT_MODE ? {
+    wakeWordEnabled: false,
+    presenceDetectionEnabled: false,
+  } : {}),
 }
 
 function loadProfile() {

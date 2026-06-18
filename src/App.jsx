@@ -99,6 +99,28 @@ function GatedRoutes() {
     return <Navigate to="/" replace />
   }
 
+  // PRODUCT_MODE post-setup: the public product is the olympiad wedge, not
+  // the 48-route grab-bag Vasco uses. Allowlist the 6 routes that belong
+  // to the wedge and bounce everything else back to /. A paying parent who
+  // typed /tennis or /piano would otherwise think this is a scam grab-bag.
+  // Vasco's deploy (no env var set) skips this — all 48 routes work for him.
+  const PRODUCT_ALLOWED_POST_SETUP = new Set([
+    '/',
+    '/onboarding',
+    '/olympiad',
+    '/report',
+    '/parent',
+    '/parent/compass',
+    '/profile',
+  ])
+  if (
+    PRODUCT_MODE &&
+    profile.setupComplete &&
+    !PRODUCT_ALLOWED_POST_SETUP.has(location.pathname)
+  ) {
+    return <Navigate to="/" replace />
+  }
+
   const showLanding = PRODUCT_MODE && !profile.setupComplete
 
   useEffect(() => {
