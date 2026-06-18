@@ -11,7 +11,7 @@ jobs:
   e2e:
     if: >-
       github.event.deployment_status.state == 'success' &&
-      contains(github.event.deployment_status.environment_url, 'vercel.app')
+      contains(github.event.deployment_status.environment_url, 'coachmaya')
     runs-on: ubuntu-latest
     timeout-minutes: 8
     strategy:
@@ -37,5 +37,40 @@ jobs:
       - name: Run e2e:${{ matrix.test }} against deploy
         env:
           URL: ${{ github.event.deployment_status.environment_url }}
+          CHROME: /usr/bin/google-chrome
+        run: npm run e2e:${{ matrix.test }}
+
+  # Product-mode e2e: runs against the public-product Vercel project
+  # (VITE_PRODUCT_MODE=1). Skipped unless PRODUCT_URL_DOMAIN repo var is set
+  # AND the incoming deployment_status URL contains that substring — so this
+  # job only fires for the product project, never for Vasco's deploy.
+  product-e2e:
+    if: >-
+      github.event.deployment_status.state == 'success' &&
+      vars.PRODUCT_URL_DOMAIN != '' &&
+      contains(github.event.deployment_status.environment_url, vars.PRODUCT_URL_DOMAIN)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        test:
+          - product-landing
+          - product-signup
+    name: product-e2e (${{ matrix.test }})
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Run e2e:${{ matrix.test }} against product deploy
+        env:
+          PRODUCT_URL: ${{ github.event.deployment_status.environment_url }}
           CHROME: /usr/bin/google-chrome
         run: npm run e2e:${{ matrix.test }}
