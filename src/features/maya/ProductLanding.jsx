@@ -82,7 +82,7 @@ export default function ProductLanding() {
           margin: 0,
           letterSpacing: 1,
         }}>
-          THE AI COACH<br/>
+          THE AMC COACH<br/>
           YOUR KID<br/>
           <span style={{ color: COLORS.accent }}>WON'T IGNORE.</span>
         </h1>
@@ -94,9 +94,9 @@ export default function ProductLanding() {
           marginTop: 24,
           marginBottom: 32,
         }}>
-          Built for the kid who's already trying — and the parent who knows
-          they could do more. Maya nudges, tracks, and remembers. So you don't
-          have to be the nag.
+          Daily AMC 8, 10, 12 drills with a coach who remembers exactly
+          where your kid got stuck last time. No nagging. No re-explaining.
+          Just the curve.
         </p>
 
         {/* Primary CTA */}
