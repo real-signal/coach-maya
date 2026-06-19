@@ -13,8 +13,9 @@ import { registerServiceWorker, scheduleDailyNotifications, getPermission } from
 
 // Eager: dashboard (needed immediately)
 import MayaDashboard from './features/maya/MayaDashboard'
-// Eager: product-mode landing (gated by PRODUCT_MODE, lightweight)
+// Eager: product-mode landing + home (gated by PRODUCT_MODE, lightweight)
 import ProductLanding from './features/maya/ProductLanding'
+import MayaProductHome from './features/maya/MayaProductHome'
 
 // Lazy: everything else (shrinks initial bundle)
 const MayaSchedule = lazy(() => import('./features/maya/MayaSchedule'))
@@ -140,7 +141,13 @@ function GatedRoutes() {
       <Suspense fallback={<Loading />}>
         <Routes>
           <Route path="/onboarding" element={<Onboarding />} />
-          <Route path="/" element={showLanding ? <ProductLanding /> : <MayaDashboard onOpenSearch={() => setCmdOpen(true)} />} />
+          <Route path="/" element={
+            showLanding
+              ? <ProductLanding />
+              : PRODUCT_MODE
+                ? <MayaProductHome />
+                : <MayaDashboard onOpenSearch={() => setCmdOpen(true)} />
+          } />
           <Route path="/schedule" element={<MayaSchedule />} />
           <Route path="/profile" element={<MayaProfile />} />
           <Route path="/parent" element={<MayaParent />} />
