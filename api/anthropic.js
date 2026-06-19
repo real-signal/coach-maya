@@ -28,6 +28,48 @@ function rateLimitedNow() {
   return false
 }
 
+// Bill-protection guardrails. Without these, anyone who finds the proxy
+// URL can hit `/api/anthropic` with `model: 'claude-opus-4'` +
+// `max_tokens: 200000` and burn through the budget until rate limit kicks
+// in. Whitelist the models we actually call and cap output length.
+const ALLOWED_MODELS = new Set([
+  'claude-sonnet-4-6',
+  'claude-haiku-4-5-20251001',
+])
+const MAX_OUTPUT_TOKENS = 4096
+const MAX_PAYLOAD_BYTES = 64 * 1024 // 64KB — generous for our longest prompts
+
+// Only forward fields we actually use. Anything else (e.g. tools,
+// custom metadata) gets stripped so the proxy can't be coerced into
+// modes we didn't design for.
+const ALLOWED_FIELDS = ['model', 'max_tokens', 'system', 'messages', 'temperature', 'stop_sequences']
+
+function sanitizePayload(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { error: 'missing_body' }
+  }
+
+  if (typeof raw.model !== 'string' || !ALLOWED_MODELS.has(raw.model)) {
+    return { error: 'model_not_allowed' }
+  }
+
+  const maxTokens = Number(raw.max_tokens)
+  if (!Number.isFinite(maxTokens) || maxTokens < 1) {
+    return { error: 'invalid_max_tokens' }
+  }
+
+  if (!Array.isArray(raw.messages) || raw.messages.length === 0) {
+    return { error: 'invalid_messages' }
+  }
+
+  const clean = {}
+  for (const k of ALLOWED_FIELDS) {
+    if (raw[k] !== undefined) clean[k] = raw[k]
+  }
+  clean.max_tokens = Math.min(maxTokens, MAX_OUTPUT_TOKENS)
+  return { payload: clean }
+}
+
 export default async function handler(req, res) {
   // Same-origin only. No CORS — the browser only ever calls this from the
   // product-mode bundle, which is served from the same domain.
@@ -51,13 +93,27 @@ export default async function handler(req, res) {
   // Fall back to manual parse for safety.
   let payload = req.body
   if (typeof payload === 'string') {
+    if (payload.length > MAX_PAYLOAD_BYTES) {
+      res.status(413).json({ error: 'payload_too_large' })
+      return
+    }
     try { payload = JSON.parse(payload) } catch {
       res.status(400).json({ error: 'invalid_json' })
       return
     }
   }
-  if (!payload || typeof payload !== 'object') {
-    res.status(400).json({ error: 'missing_body' })
+
+  const { payload: clean, error } = sanitizePayload(payload)
+  if (error) {
+    res.status(400).json({ error })
+    return
+  }
+
+  // Re-check size after sanitization — a payload could be valid JSON but
+  // still wildly oversized in a single field (e.g. a giant messages array).
+  const body = JSON.stringify(clean)
+  if (body.length > MAX_PAYLOAD_BYTES) {
+    res.status(413).json({ error: 'payload_too_large' })
     return
   }
 
@@ -69,7 +125,7 @@ export default async function handler(req, res) {
         'x-api-key': key,
         'anthropic-version': ANTHROPIC_VERSION,
       },
-      body: JSON.stringify(payload),
+      body,
     })
 
     const text = await upstream.text()
