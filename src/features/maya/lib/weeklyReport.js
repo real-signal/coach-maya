@@ -30,13 +30,37 @@ export function lastSevenDays() {
 
 /**
  * Build the full weekly report payload from localStorage.
- * Returns null if there's no olympiad data yet.
+ *
+ * Always returns a usable report — even on day zero with no attempts.
+ * The viral loop depends on the parent being able to share *something*
+ * the first time they open this; an empty card is the wedge equivalent
+ * of a 404. Empty reports flag `isEmpty: true` so the view can soften
+ * copy ("Day 1") instead of showing "0% accuracy".
  */
 export function buildWeeklyReport() {
   const { attempts = [], streak = 0 } = loadOlympiad()
-  if (attempts.length === 0) return null
 
   const { start, end, label } = lastSevenDays()
+
+  if (attempts.length === 0) {
+    return {
+      isEmpty: true,
+      range: { start, end, label },
+      streak: 0,
+      totalAttempts: 0,
+      correct: 0,
+      accuracy: null,
+      accuracyDelta: null,
+      activeDays: 0,
+      byLevel: {},
+      byTopic: {},
+      hardestCracked: null,
+      stretchMiss: null,
+      weakestTopic: null,
+      lastWeekAttempts: 0,
+    }
+  }
+
   const thisWeek = attempts.filter(a => {
     const d = a.ts.slice(0, 10)
     return d >= start && d <= end
@@ -102,6 +126,7 @@ export function buildWeeklyReport() {
     : null
 
   return {
+    isEmpty: false,
     range: { start, end, label },
     streak,
     totalAttempts: thisWeek.length,

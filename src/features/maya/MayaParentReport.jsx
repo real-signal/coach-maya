@@ -24,6 +24,9 @@ const C = {
 
 function fallbackCommentary(report, profile) {
   const name = profile?.name || 'Your kid'
+  if (report.isEmpty) {
+    return `${name} just joined Maya — this is the report card before the first session. Once they start drilling, this page fills with real numbers: accuracy, streak, hardest problem cracked, and where to focus next week. Open Olympiad mode and run a few problems with them.`
+  }
   const acc = report.accuracy
   const tone = acc >= 80 ? 'crushing it' : acc >= 60 ? 'building momentum' : 'doing the hard work'
   const delta = report.accuracyDelta
@@ -48,7 +51,9 @@ export default function MayaParentReport() {
 
   useEffect(() => {
     if (!report) return
-    if (!canCallClaude()) {
+    // Empty report (no attempts yet) — don't burn an API call to describe
+    // the absence of data. The fallback already says the right thing.
+    if (report.isEmpty || !canCallClaude()) {
       setCommentary(fallbackCommentary(report, profile))
       return
     }
@@ -81,33 +86,24 @@ Write the parent debrief now.`,
     return () => { cancelled = true }
   }, [report, profile])
 
-  if (!report) {
-    return (
-      <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: C.mono, paddingBottom: 80 }}>
-        <Header onBack={() => navigate('/')} />
-        <div style={{ padding: 24, textAlign: 'center', maxWidth: 480, margin: '0 auto' }}>
-          <div style={{ fontSize: 44 }}>📋</div>
-          <div style={{ fontFamily: C.display, fontSize: 24, color: C.gold, marginTop: 8, letterSpacing: 1 }}>
-            NOTHING TO REPORT YET
-          </div>
-          <div style={{ fontSize: 12, color: C.muted, marginTop: 8, lineHeight: 1.6 }}>
-            Do a few Olympiad problems first — Maya needs a week of data before she has anything to brag about.
-          </div>
-          <button onClick={() => navigate('/olympiad')} style={{ ...btn, marginTop: 20 }}>
-            Start Olympiad Mode →
-          </button>
-        </div>
-      </div>
-    )
-  }
+  // Defensive — buildWeeklyReport always returns a shape now (isEmpty for
+  // zero-attempt case), but guard against a future regression.
+  if (!report) return null
 
-  const accColor = report.accuracy >= 70 ? C.green : report.accuracy >= 50 ? C.amber : C.red
+  const isEmpty = report.isEmpty
+  const accColor = isEmpty
+    ? C.muted
+    : report.accuracy >= 70 ? C.green : report.accuracy >= 50 ? C.amber : C.red
   const deltaPositive = report.accuracyDelta !== null && report.accuracyDelta > 0
   const deltaNegative = report.accuracyDelta !== null && report.accuracyDelta < 0
 
-  const shareText = `${profile?.name || 'My kid'}'s Maya Weekly Report (${report.range.label})\n` +
-    `${report.totalAttempts} problems, ${report.accuracy}% accuracy, ${report.streak}-day streak${report.accuracyDelta !== null ? `, ${report.accuracyDelta > 0 ? '+' : ''}${report.accuracyDelta} pts vs last week` : ''}.\n\n` +
-    `Get yours at mayaprep.com`
+  const shareText = isEmpty
+    ? `${profile?.name || 'My kid'} just started Maya — the AI olympiad coach.\n` +
+      `Daily AMC drills, weekly parent reports. First session about to drop.\n\n` +
+      `Get yours at mayaprep.com`
+    : `${profile?.name || 'My kid'}'s Maya Weekly Report (${report.range.label})\n` +
+      `${report.totalAttempts} problems, ${report.accuracy}% accuracy, ${report.streak}-day streak${report.accuracyDelta !== null ? `, ${report.accuracyDelta > 0 ? '+' : ''}${report.accuracyDelta} pts vs last week` : ''}.\n\n` +
+      `Get yours at mayaprep.com`
 
   const onShare = async () => {
     try {
@@ -139,7 +135,7 @@ Write the parent debrief now.`,
           {/* Brand */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
             <div style={{ fontSize: 10, color: C.teal, textTransform: 'uppercase', letterSpacing: 2, fontWeight: 700 }}>
-              Maya · Weekly Report
+              {isEmpty ? 'Maya · Day 1' : 'Maya · Weekly Report'}
             </div>
             <div style={{ fontSize: 9, color: C.muted }}>{report.range.label}</div>
           </div>
@@ -152,11 +148,17 @@ Write the parent debrief now.`,
           {/* Hero metric */}
           <div style={{ marginTop: 16, display: 'flex', alignItems: 'baseline', gap: 12 }}>
             <div style={{ fontFamily: C.display, fontSize: 56, color: accColor, lineHeight: 1 }}>
-              {report.accuracy}%
+              {isEmpty ? '—' : `${report.accuracy}%`}
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 10, color: C.muted, textTransform: 'uppercase', letterSpacing: 1 }}>Accuracy</div>
-              {report.accuracyDelta !== null && (
+              <div style={{ fontSize: 10, color: C.muted, textTransform: 'uppercase', letterSpacing: 1 }}>
+                {isEmpty ? 'First session pending' : 'Accuracy'}
+              </div>
+              {isEmpty ? (
+                <div style={{ fontSize: 11, marginTop: 2, color: C.teal }}>
+                  Real numbers land after problem #1.
+                </div>
+              ) : report.accuracyDelta !== null && (
                 <div style={{
                   fontSize: 11, marginTop: 2,
                   color: deltaPositive ? C.green : deltaNegative ? C.red : C.muted,
