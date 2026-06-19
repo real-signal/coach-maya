@@ -9,7 +9,7 @@
  *
  * Adaptive: pickNextProblem() prioritizes unseen → recent miss → random.
  */
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import sfx from './lib/sfx'
 import { LEVELS, problemsForLevel, pickNextProblem } from './lib/olympiadProblems'
@@ -90,7 +90,28 @@ export default function MayaOlympiad() {
     setPicked(null)
     setRevealed(false)
     setExplanation('')
+    // Remember the kid's choice so next session lands here too.
+    if (state.preferredLevel !== lvl) {
+      const nextState = { ...state, preferredLevel: lvl }
+      saveState(nextState)
+      setState(nextState)
+    }
   }
+
+  // Auto-jump to the level captured during onboarding (PRODUCT_MODE) so
+  // day-one users solve a problem instead of staring at a picker. Only
+  // fires once per mount; the kid can always back out to switch.
+  const autoStartedRef = useRef(false)
+  useEffect(() => {
+    if (autoStartedRef.current) return
+    if (level) return
+    const preferred = state.preferredLevel
+    if (preferred && LEVELS.some(l => l.id === preferred)) {
+      autoStartedRef.current = true
+      startLevel(preferred)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const submit = () => {
     if (!picked || !problem || revealed) return

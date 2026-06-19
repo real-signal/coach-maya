@@ -4,7 +4,7 @@
  * No forms, no dropdowns, no checkboxes. Just a chat.
  */
 import { useState, useRef, useEffect, lazy, Suspense } from 'react'
-import { loadProfile, saveProfile } from './lib/profile'
+import { loadProfile, saveProfile, PRODUCT_MODE } from './lib/profile'
 import { buildProfileFromChat, toAppProfile } from './agents/profileBuilder'
 import { generateSchedule } from './agents/scheduleGenerator'
 
@@ -17,7 +17,7 @@ const C = {
   mono: "'IBM Plex Mono', monospace", display: "'Bebas Neue', sans-serif",
 }
 
-const MAYA_QUESTIONS = [
+const BASE_QUESTIONS = [
   {
     key: 'q1',
     text: "Hey! I'm Maya — your coach. What's your name, age, and where are you from?",
@@ -45,6 +45,28 @@ const MAYA_QUESTIONS = [
   },
 ]
 
+// PRODUCT_MODE adds an AMC level question so the olympiad drill has signal
+// from problem #1. Without it the adaptive picker is a coin flip on day one.
+const PRODUCT_AMC_QUESTION = {
+  key: 'q6_amc',
+  text: null,
+  placeholder: "e.g. AMC 8 / AMC 10 / new to all this",
+}
+
+const MAYA_QUESTIONS = PRODUCT_MODE
+  ? [...BASE_QUESTIONS, PRODUCT_AMC_QUESTION]
+  : BASE_QUESTIONS
+
+// Parse a free-text answer to one of our three AMC levels. Defaults to amc8
+// when the kid says "new" or we can't tell — better to start gentle than
+// throw a 12th-grader problem at a 6th-grader.
+function parseAmcLevel(answer) {
+  const s = (answer || '').toLowerCase()
+  if (/\b(amc\s*12|amc12|grade\s*1[12]|year\s*1[23]|11th|12th|junior|senior)\b/.test(s)) return 'amc12'
+  if (/\b(amc\s*10|amc10|grade\s*(9|10)|year\s*(10|11)|9th|10th|freshman|sophomore)\b/.test(s)) return 'amc10'
+  return 'amc8'
+}
+
 function getMayaQuestion(index, answers) {
   if (index === 0) return MAYA_QUESTIONS[0].text
 
@@ -59,8 +81,13 @@ function getMayaQuestion(index, answers) {
     `Nice to meet you, ${name}. What do you do after school? Any sports, instruments, clubs, hobbies?`,
     `Cool. What about school — any subjects you actually like? And any you can't stand?`,
     `What time do you usually go to bed?`,
-    `Last one. What's one thing you want to get better at this year? Anything counts.`,
+    PRODUCT_MODE
+      ? `What's one thing you want to crush this year? Anything counts.`
+      : `Last one. What's one thing you want to get better at this year? Anything counts.`,
   ]
+  if (PRODUCT_MODE && index === 5) {
+    return `One last thing, ${name} — where are you on the AMC curve? AMC 8, AMC 10, AMC 12, or new to all this? (I'll start you at the right level.)`
+  }
   return questions[index]
 }
 
@@ -157,6 +184,18 @@ export default function Onboarding() {
         const extracted = await buildProfileFromChat(newAnswers)
         const appProfile = toAppProfile(extracted)
         const schedule = generateSchedule(extracted)
+
+        // PRODUCT_MODE: stash the AMC level so MayaOlympiad can auto-start
+        // there instead of showing the picker first. Day-one friction goes
+        // from "pick a level you don't fully understand" to "solve a problem".
+        if (PRODUCT_MODE && newAnswers.q6_amc) {
+          try {
+            const raw = localStorage.getItem('maya_olympiad')
+            const prev = raw ? JSON.parse(raw) : {}
+            const next = { ...prev, preferredLevel: parseAmcLevel(newAnswers.q6_amc) }
+            localStorage.setItem('maya_olympiad', JSON.stringify(next))
+          } catch {}
+        }
 
         setSummary({ profile: appProfile, schedule, extracted })
         setBuilding(false)
