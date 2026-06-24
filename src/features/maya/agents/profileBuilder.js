@@ -129,9 +129,13 @@ function extractWithKeywords(answers) {
 
   // Q1: Name and age
   const q1 = (answers.q1 || '').trim()
-  // Try to extract name — first word that's capitalized, or first word
-  const nameMatch = q1.match(/(?:i'?m|my name is|name'?s|call me)\s+(\w+)/i)
-    || q1.match(/^(\w+)/)
+  // Name extraction has to handle both voices: kid ("I'm Alex") and parent
+  // ("Her name is Riley"). Parent-voice patterns must match first — otherwise
+  // the fallback /^(\w+)/ catches "Her" / "His" / "Their" as the name.
+  const nameMatch =
+    q1.match(/(?:his name is|her name is|their name is|name'?s|call (?:him|her|them))\s+([\w-]+)/i) ||
+    q1.match(/(?:i'?m|my name is|call me)\s+([\w-]+)/i) ||
+    q1.match(/^([\w-]+)/)
   if (nameMatch) result.name = nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1).toLowerCase()
 
   // Try explicit age patterns first, then fall back to a bounded bare digit

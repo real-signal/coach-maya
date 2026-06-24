@@ -28,6 +28,18 @@ const C = {
   display: "'Bebas Neue', sans-serif",
 }
 
+// Whole-child surface tiles — mirror the landing's promise so the kid (and
+// parent peeking over their shoulder) sees Maya holds more than the drill.
+// Each route is in the PRODUCT_ALLOWED_POST_SETUP allowlist in App.jsx.
+const SURFACE_TILES = [
+  { icon: '♪', label: 'Piano',    route: '/piano' },
+  { icon: '⊕', label: 'Tennis',   route: '/tennis' },
+  { icon: '✎', label: 'Reading',  route: '/reading' },
+  { icon: '✦', label: 'Homework', route: '/homework' },
+  { icon: '♡', label: 'Mood',     route: '/moods' },
+  { icon: '☾', label: 'Sleep',    route: '/sleep' },
+]
+
 function loadOlympiadState() {
   try {
     return JSON.parse(localStorage.getItem('maya_olympiad')) || { attempts: [], streak: 0, lastDate: null }
@@ -99,10 +111,11 @@ export default function MayaProductHome() {
       }} />
 
       <div style={{ position: 'relative', zIndex: 1 }}>
-        {/* Brand strip */}
+        {/* Brand strip — brand left, parent-view affordance right.
+            The parent should always have a 1-tap path to their dashboard. */}
         <div style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          marginBottom: 24,
+          marginBottom: 12,
         }}>
           <div style={{
             fontFamily: C.display,
@@ -112,14 +125,34 @@ export default function MayaProductHome() {
           }}>
             COACH MAYA
           </div>
-          <div style={{
-            fontSize: 10,
-            color: C.muted,
-            letterSpacing: 1,
-            textTransform: 'uppercase',
-          }}>
-            {greeting}, {firstName}
-          </div>
+          <button
+            onClick={() => navigate('/report')}
+            style={{
+              background: 'transparent',
+              border: `1px solid ${C.border}`,
+              color: C.gold,
+              padding: '6px 10px',
+              borderRadius: 8,
+              fontSize: 9,
+              fontFamily: C.mono,
+              letterSpacing: 1.5,
+              textTransform: 'uppercase',
+              cursor: 'pointer',
+            }}
+          >
+            Parent view →
+          </button>
+        </div>
+
+        {/* Greeting row */}
+        <div style={{
+          fontSize: 10,
+          color: C.muted,
+          letterSpacing: 1,
+          textTransform: 'uppercase',
+          marginBottom: 18,
+        }}>
+          {greeting}, {firstName}
         </div>
 
         {/* Streak / today headline */}
@@ -194,8 +227,11 @@ export default function MayaProductHome() {
           <Stat label="Total solved" value={totalCorrect} color={C.gold} />
         </div>
 
-        {/* Parent report — secondary */}
-        <div style={{ marginTop: 28 }}>
+        {/* Whole-child surface — Maya holds more than the drill.
+            The drill stays the primary CTA (daily habit), but the kid (and
+            parent) can see Maya is also a real partner for the other things
+            they're working on. Each tile routes to its agent page. */}
+        <div style={{ marginTop: 32 }}>
           <div style={{
             fontFamily: C.display,
             fontSize: 11,
@@ -203,49 +239,43 @@ export default function MayaProductHome() {
             color: C.muted,
             marginBottom: 10,
           }}>
-            FOR PARENTS
+            WHAT ELSE MAYA HOLDS FOR YOU
           </div>
-          <button
-            onClick={() => navigate('/report')}
-            style={{
-              width: '100%',
-              padding: 18,
-              background: C.surface,
-              border: `1px solid ${C.border}`,
-              borderLeft: `4px solid ${C.gold}`,
-              borderRadius: 12,
-              color: C.text,
-              textAlign: 'left',
-              cursor: 'pointer',
-              fontFamily: C.mono,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: 12,
-            }}
-          >
-            <span>
-              <div style={{
-                fontFamily: C.display,
-                fontSize: 18,
-                letterSpacing: 2,
-                color: C.gold,
-              }}>
-                WEEKLY REPORT
-              </div>
-              <div style={{
-                fontSize: 11,
-                color: C.muted,
-                marginTop: 4,
-                lineHeight: 1.4,
-              }}>
-                {attempts.length > 0
-                  ? 'Screenshot it for the family chat.'
-                  : 'Unlocks after the first drill.'}
-              </div>
-            </span>
-            <span style={{ color: C.gold, fontSize: 18 }}>→</span>
-          </button>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr 1fr',
+            gap: 8,
+          }}>
+            {SURFACE_TILES.map((t) => (
+              <button
+                key={t.label}
+                onClick={() => navigate(t.route)}
+                style={{
+                  padding: '14px 8px',
+                  background: C.surface,
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 12,
+                  color: C.text,
+                  fontFamily: C.mono,
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  backdropFilter: 'blur(20px)',
+                }}
+              >
+                <div style={{
+                  fontSize: 20,
+                  color: C.teal,
+                  marginBottom: 4,
+                }}>{t.icon}</div>
+                <div style={{
+                  fontSize: 10,
+                  color: C.text,
+                  letterSpacing: 0.5,
+                  textTransform: 'uppercase',
+                }}>{t.label}</div>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Footer hint */}
@@ -257,7 +287,7 @@ export default function MayaProductHome() {
           letterSpacing: 1,
           textTransform: 'uppercase',
         }}>
-          One verb. One streak. One coach.
+          One coach. The whole kid.
         </div>
       </div>
     </div>

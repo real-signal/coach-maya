@@ -8,8 +8,9 @@
  *
  * What we assert:
  *  - title is "Coach Maya"
- *  - landing hero ("WON'T IGNORE") + proof stats + value props are rendered
- *  - primary CTA navigates to /onboarding
+ *  - mother-to-parent hero ("NOW SHE'S YOURS") + founder story + whole-child
+ *    surface tiles + parent-fear value props are rendered
+ *  - primary CTA ("SET MAYA UP FOR YOUR KID") navigates to /onboarding
  *  - BottomNav / VoiceFab / Maya3D <canvas> are NOT rendered (pre-onboarding)
  *  - no console errors, no failed requests
  */
@@ -39,19 +40,30 @@ const state = await page.evaluate(() => {
     const cs = getComputedStyle(e)
     return cs.position === 'fixed' && parseInt(cs.bottom) < 50
   }).length
-  // Primary CTA — find by text content.
+  // Primary CTA — mother-to-parent reframe: "SET MAYA UP FOR YOUR KID".
   const buttons = Array.from(document.querySelectorAll('button'))
-  const startBtn = buttons.find(b => /start free/i.test(b.textContent || ''))
-  const meetBtn = buttons.find(b => /meet maya/i.test(b.textContent || ''))
+  const setupBtn = buttons.find(b => /set maya up for your kid/i.test(b.textContent || ''))
+  const tellBtn = buttons.find(b => /tell maya about your kid/i.test(b.textContent || ''))
   return {
     title: document.title,
     path: location.pathname,
     bodyText,
-    hasHero: /WON'T IGNORE/i.test(bodyText),
-    hasProofStats: /5 min/i.test(bodyText) && /24\/7/i.test(bodyText),
-    hasValueProps: /SHE REMEMBERS/i.test(bodyText) && /SHE PUSHES/i.test(bodyText),
-    hasStartCta: !!startBtn,
-    hasMeetCta: !!meetBtn,
+    // Hero: "I BUILT MAYA FOR MY SON. NOW SHE'S YOURS."
+    // innerText turns <br/> into \n, so match with \s+ across the line breaks.
+    hasHero: /now she'?s yours/i.test(bodyText) && /built\s+maya\s+for\s+my\s+son/i.test(bodyText),
+    // Founder spine: the mother story is the trust signal, not a footnote
+    hasFounderStory: /why maya exists/i.test(bodyText) && /vasco/i.test(bodyText),
+    // Whole-child surface tiles — Maya is more than AMC
+    hasSurfaceTiles: /what maya holds/i.test(bodyText)
+      && /music practice/i.test(bodyText)
+      && /sport/i.test(bodyText)
+      && /mood/i.test(bodyText),
+    // Parent-fear value props (the reframe)
+    hasValueProps: /remembers what you can'?t/i.test(bodyText)
+      && /bad guy/i.test(bodyText)
+      && /see your kid more clearly/i.test(bodyText),
+    hasSetupCta: !!setupBtn,
+    hasTellCta: !!tellBtn,
     fixedBottomCount,
     hasCanvas: !!document.querySelector('canvas'),
   }
@@ -60,11 +72,12 @@ const state = await page.evaluate(() => {
 console.log('\n=== Landing render ===')
 check('Title is "Coach Maya"', state.title === 'Coach Maya', state.title)
 check('Path is /', state.path === '/', state.path)
-check('Hero ("WON\'T IGNORE") rendered', state.hasHero)
-check('Proof stats (5 min / 24/7) rendered', state.hasProofStats)
-check('Value props (SHE REMEMBERS / SHE PUSHES) rendered', state.hasValueProps)
-check('Primary CTA "START FREE" present', state.hasStartCta)
-check('Secondary CTA "MEET MAYA" present', state.hasMeetCta)
+check('Hero ("NOW SHE\'S YOURS") rendered', state.hasHero)
+check('Founder story (WHY MAYA EXISTS + Vasco) rendered', state.hasFounderStory)
+check('Whole-child surface tiles (music/sport/mood) rendered', state.hasSurfaceTiles)
+check('Parent-fear value props rendered', state.hasValueProps)
+check('Primary CTA "SET MAYA UP FOR YOUR KID" present', state.hasSetupCta)
+check('Closing CTA "TELL MAYA ABOUT YOUR KID" present', state.hasTellCta)
 check('No BottomNav (no fixed-bottom el)', state.fixedBottomCount === 0,
   `${state.fixedBottomCount} fixed-bottom el(s)`)
 check('No Maya3D canvas (avatar hidden pre-onboarding)', !state.hasCanvas)
@@ -76,7 +89,7 @@ const navWait = page.waitForFunction(
 ).catch(() => null)
 await page.evaluate(() => {
   const btn = Array.from(document.querySelectorAll('button'))
-    .find(b => /start free/i.test(b.textContent || ''))
+    .find(b => /set maya up for your kid/i.test(b.textContent || ''))
   if (btn) btn.click()
 })
 await navWait

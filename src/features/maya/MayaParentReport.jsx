@@ -25,20 +25,23 @@ const C = {
 function fallbackCommentary(report, profile) {
   const name = profile?.name || 'Your kid'
   if (report.isEmpty) {
-    return `${name} just joined Maya — this is the report card before the first session. Once they start drilling, this page fills with real numbers: accuracy, streak, hardest problem cracked, and where to focus next week. Open Olympiad mode and run a few problems with them.`
+    // Day 1 / pre-first-session: Maya speaks to the parent in her voice,
+    // not stats. Sets expectation for what the weekly note becomes once
+    // data flows.
+    return `Here's what I'll be watching for ${name}: focus, energy, the small habits that compound. The numbers on this page fill in once they start, but the read on ${name} as a whole kid — what's working, what's heavy, where to push and where to back off — that's what I'll bring you every week. Hand them the device when you're ready.`
   }
   const acc = report.accuracy
-  const tone = acc >= 80 ? 'crushing it' : acc >= 60 ? 'building momentum' : 'doing the hard work'
+  const tone = acc >= 80 ? 'in a real groove' : acc >= 60 ? 'finding the rhythm' : 'doing the heavy lifting'
   const delta = report.accuracyDelta
   const deltaStr = delta === null
     ? ''
     : delta > 0
-      ? ` Accuracy is up ${delta} points from last week — that\'s the curve we want.`
+      ? ` Accuracy lifted ${delta} points from last week — that's the curve we want.`
       : delta < 0
-        ? ` Accuracy dipped ${Math.abs(delta)} points — usually means they tried harder problems. Good sign.`
+        ? ` Accuracy dipped ${Math.abs(delta)} points — usually means harder problems landed on the desk. Not a worry.`
         : ''
-  const focus = report.weakestTopic ? ` Next week's focus area: ${topicLabel(report.weakestTopic)}.` : ''
-  return `${name} is ${tone}. ${report.correct} correct out of ${report.totalAttempts} attempts across ${report.activeDays} active days.${deltaStr}${focus}`
+  const focus = report.weakestTopic ? ` Next week I'll lean ${name} into ${topicLabel(report.weakestTopic)}.` : ''
+  return `${name} is ${tone} this week. ${report.correct} solved out of ${report.totalAttempts} attempts across ${report.activeDays} days.${deltaStr}${focus}`
 }
 
 export default function MayaParentReport() {
@@ -62,7 +65,11 @@ export default function MayaParentReport() {
     callClaude({
       model: 'claude-sonnet-4-6',
       max_tokens: 250,
-      system: `You are Maya, an AI math olympiad coach. Write a 3-4 sentence parent-facing commentary about a kid's week of olympiad practice. Use the kid's name. Be direct, specific, and constructive — talk to the parent like a coach giving a brief debrief. NO markdown, NO emojis. Plain text only. End by naming the next-week focus area.`,
+      system: `You are Maya — a personal coach a mother built for her own son, now coaching this parent's kid across everything they're trying to be great at (math, music, sport, school, mood, sleep). You speak parent-to-parent, in the founder's voice: warm, specific, a real read on the kid as a whole person, not a stats dump.
+
+Write a 3-4 sentence weekly note to the parent about what you noticed this week. Use the kid's name. Talk about them like you actually know them — what's working, what feels heavy, where to push and where to back off. The numbers below are real signal, but they're not the point — the point is helping this parent see their kid more clearly.
+
+NO markdown, NO emojis. Plain text only. End by naming what you'll focus on for them next week.`,
       messages: [{
         role: 'user',
         content: `Kid: ${profile?.name || 'student'}, age ${profile?.age ?? 'unknown'}.
@@ -98,12 +105,12 @@ Write the parent debrief now.`,
   const deltaNegative = report.accuracyDelta !== null && report.accuracyDelta < 0
 
   const shareText = isEmpty
-    ? `${profile?.name || 'My kid'} just started Maya — the AI olympiad coach.\n` +
-      `Daily AMC drills, weekly parent reports. First session about to drop.\n\n` +
-      `Get yours at mayaprep.com`
-    : `${profile?.name || 'My kid'}'s Maya Weekly Report (${report.range.label})\n` +
-      `${report.totalAttempts} problems, ${report.accuracy}% accuracy, ${report.streak}-day streak${report.accuracyDelta !== null ? `, ${report.accuracyDelta > 0 ? '+' : ''}${report.accuracyDelta} pts vs last week` : ''}.\n\n` +
-      `Get yours at mayaprep.com`
+    ? `Just set up Maya for ${profile?.name || 'my kid'} — a personal coach a mother built for her own son. Math, music, sport, the whole kid in one assistant.\n\n` +
+      `mayaprep.com`
+    : `Maya's weekly note on ${profile?.name || 'my kid'} (${report.range.label})\n` +
+      `${report.totalAttempts} problems, ${report.accuracy}% accuracy, ${report.streak}-day streak${report.accuracyDelta !== null ? `, ${report.accuracyDelta > 0 ? '+' : ''}${report.accuracyDelta} pts vs last week` : ''}.\n` +
+      `The personal coach a mother built for her own son.\n\n` +
+      `mayaprep.com`
 
   const onShare = async () => {
     try {
@@ -135,7 +142,7 @@ Write the parent debrief now.`,
           {/* Brand */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
             <div style={{ fontSize: 10, color: C.teal, textTransform: 'uppercase', letterSpacing: 2, fontWeight: 700 }}>
-              {isEmpty ? 'Maya · Day 1' : 'Maya · Weekly Report'}
+              {isEmpty ? 'Maya · Day 1 — before the first session' : 'Maya · Weekly note for you'}
             </div>
             <div style={{ fontSize: 9, color: C.muted }}>{report.range.label}</div>
           </div>
@@ -240,13 +247,31 @@ Write the parent debrief now.`,
           </div>
         </div>
 
-        {/* Action buttons (outside card so they don't show in screenshot) */}
-        <button onClick={onShare} style={btn}>
-          {copied ? '✓ Copied — paste anywhere' : '↗ Share this report'}
-        </button>
-        <button onClick={() => navigate('/olympiad')} style={{ ...secBtn, marginTop: 8 }}>
-          Back to Olympiad
-        </button>
+        {/* Action buttons (outside card so they don't show in screenshot).
+            On Day 1 the parent's primary verb is "hand the device over" —
+            that's the moment Maya enters the kid's life. Share is secondary
+            until there's an actual week of data worth sharing. After Day 1
+            the primary verb flips: now the report is the artifact, the
+            handoff is a quick "back to coach" link. */}
+        {isEmpty ? (
+          <>
+            <button onClick={() => navigate('/')} style={btn}>
+              Hand the device to {profile?.name || 'your kid'} →
+            </button>
+            <button onClick={onShare} style={{ ...secBtn, marginTop: 8 }}>
+              {copied ? '✓ Copied — paste anywhere' : '↗ Share that you started'}
+            </button>
+          </>
+        ) : (
+          <>
+            <button onClick={onShare} style={btn}>
+              {copied ? '✓ Copied — paste anywhere' : '↗ Share this week\'s note'}
+            </button>
+            <button onClick={() => navigate('/')} style={{ ...secBtn, marginTop: 8 }}>
+              Back to {profile?.name || 'your kid'}'s coach
+            </button>
+          </>
+        )}
       </div>
     </div>
   )
@@ -301,7 +326,7 @@ function Header({ onBack, onShare, copied }) {
       background: C.surface, display: 'flex', alignItems: 'center', gap: 12,
     }}>
       <button onClick={onBack} style={{ background: 'transparent', border: 'none', color: C.muted, fontSize: 18, cursor: 'pointer', padding: 0 }}>←</button>
-      <div style={{ flex: 1, fontFamily: C.display, fontSize: 20, color: C.gold, letterSpacing: 2 }}>WEEKLY REPORT</div>
+      <div style={{ flex: 1, fontFamily: C.display, fontSize: 20, color: C.gold, letterSpacing: 2 }}>MAYA'S NOTE</div>
       {onShare && (
         <button onClick={onShare} style={{
           background: 'transparent', border: `1px solid ${C.border}`,

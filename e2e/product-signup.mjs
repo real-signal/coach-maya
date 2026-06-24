@@ -4,11 +4,12 @@
  *
  * What we assert:
  *  - cold load lands on the marketing landing (not dashboard)
- *  - START FREE → /onboarding
- *  - all 5 Q&A + PIN walks cleanly
- *  - after completion: profile.name non-empty, setupComplete=true, redirected to /
- *  - dashboard chrome (BottomNav, Maya3D canvas) is now rendered (NOT landing)
- *  - hard reload still shows dashboard (proves setupComplete gate works)
+ *  - "SET MAYA UP FOR YOUR KID" → /onboarding
+ *  - all 6 Q&A (parent voice: 5 base + AMC level) + PIN walks cleanly
+ *  - after completion: profile.name non-empty, setupComplete=true
+ *  - PRODUCT_MODE reframe: parent lands on /report first (their dashboard),
+ *    not on the kid drill home — Maya's note is the first thing they see
+ *  - hard reload at / still shows kid product home (NOT landing, NOT canvas)
  */
 import { launch } from './_helpers.mjs'
 
@@ -30,22 +31,22 @@ const landingState = await page.evaluate(() => {
   const bodyText = document.body.innerText || ''
   return {
     path: location.pathname,
-    hasHero: /WON'T IGNORE/i.test(bodyText),
+    hasHero: /now she'?s yours/i.test(bodyText),
     hasStartBtn: !!Array.from(document.querySelectorAll('button'))
-      .find(b => /start free/i.test(b.textContent || '')),
+      .find(b => /set maya up for your kid/i.test(b.textContent || '')),
   }
 })
 check('Landing rendered at /', landingState.path === '/' && landingState.hasHero)
-check('START FREE CTA present', landingState.hasStartBtn)
+check('"SET MAYA UP FOR YOUR KID" CTA present', landingState.hasStartBtn)
 
-console.log('\n=== Clicking START FREE → /onboarding ===')
+console.log('\n=== Clicking "SET MAYA UP" → /onboarding ===')
 const navWait = page.waitForFunction(
   () => location.pathname === '/onboarding',
   { timeout: 8000 },
 ).catch(() => null)
 await page.evaluate(() => {
   const btn = Array.from(document.querySelectorAll('button'))
-    .find(b => /start free/i.test(b.textContent || ''))
+    .find(b => /set maya up for your kid/i.test(b.textContent || ''))
   if (btn) btn.click()
 })
 await navWait
@@ -60,12 +61,16 @@ check('Onboarding input rendered', onboardingState.hasInput)
 
 if (!onboardingState.hasInput) await finish()
 
+// PRODUCT_MODE onboarding is parent-voice now — the parent answers about
+// their kid. Includes the AMC level question (q6) added in v81, which
+// PRODUCT_MODE always asks.
 const answers = [
-  "I'm Riley, 10, from Austin",
-  "I do swimming and chess club, and I like to draw",
-  "I love science and reading but I find maths hard",
+  "Her name is Riley, she's 10, from Austin",
+  "She does swimming and chess club, and she loves drawing",
+  "She loves science and reading but maths is a struggle",
   "around 9:00",
-  "Get faster at swimming and stop hating maths",
+  "Get her ready for AMC 8 and stop hating maths",
+  "AMC 8 — she's new to all this",
 ]
 
 console.log('\n=== Walking through Q&A ===')
@@ -84,7 +89,7 @@ for (let i = 0; i < answers.length; i++) {
 console.log('\n=== Awaiting PIN step ===')
 const pinAppeared = await page.waitForSelector('input[type="tel"]', { timeout: 25000 })
   .then(() => true).catch(() => false)
-check('PIN input appeared after Q5', pinAppeared)
+check('PIN input appeared after final question', pinAppeared)
 
 if (!pinAppeared) await finish()
 
@@ -93,8 +98,10 @@ await pin.click()
 await pin.type('1234', { delay: 30 })
 await new Promise(r => setTimeout(r, 300))
 
+// PRODUCT_MODE reframe: finishSetup redirects to /report (parent dashboard),
+// not /. The parent should see Maya's note before handing the device over.
 const completeWait = page.waitForFunction(
-  () => location.pathname === '/',
+  () => location.pathname === '/report',
   { timeout: 8000 },
 ).catch(() => null)
 await page.evaluate(() => {
@@ -103,15 +110,15 @@ await page.evaluate(() => {
   if (go) go.click()
 })
 await completeWait
-await new Promise(r => setTimeout(r, 2000))
+await new Promise(r => setTimeout(r, 2500))
 
 const persisted = await page.evaluate(() => ({
   path: location.pathname,
   profile: localStorage.getItem('maya_profile'),
 }))
 
-console.log('\n=== Post-completion ===')
-check('Redirected to /', persisted.path === '/', persisted.path)
+console.log('\n=== Post-completion (parent lands on /report) ===')
+check('Redirected to /report (parent dashboard first)', persisted.path === '/report', persisted.path)
 check('Profile persisted', !!persisted.profile)
 
 if (persisted.profile) {
@@ -121,22 +128,55 @@ if (persisted.profile) {
   check('profile.parentPinHash set', !!p.parentPinHash)
 }
 
-const postSetup = await page.evaluate(() => {
+// Parent's Day-1 view: Maya's note card, hand-off CTA, kid's name visible.
+const reportState = await page.evaluate(() => {
   const bodyText = document.body.innerText || ''
-  const fixedBottomCount = Array.from(document.querySelectorAll('*')).filter(e => {
-    const cs = getComputedStyle(e)
-    return cs.position === 'fixed' && parseInt(cs.bottom) < 50
-  }).length
+  const buttons = Array.from(document.querySelectorAll('button'))
   return {
-    hasCanvas: !!document.querySelector('canvas'),
-    fixedBottomCount,
-    stillOnLanding: /WON'T IGNORE/i.test(bodyText),
+    hasMayasNote: /maya'?s note/i.test(bodyText),
+    hasDay1Card: /day 1/i.test(bodyText) || /before the first session/i.test(bodyText),
+    hasKidName: /riley/i.test(bodyText),
+    hasHandoffBtn: !!buttons.find(b => /hand the device/i.test(b.textContent || '')),
   }
 })
-check('Dashboard rendered (Maya3D canvas present)', postSetup.hasCanvas)
-check('BottomNav present (fixed-bottom el)', postSetup.fixedBottomCount >= 1,
-  `${postSetup.fixedBottomCount} fixed-bottom el(s)`)
-check('Landing NOT showing (setup complete)', !postSetup.stillOnLanding)
+check('Maya\'s note header rendered', reportState.hasMayasNote)
+check('Day-1 framing on first visit', reportState.hasDay1Card)
+check('Kid name (Riley) visible on report', reportState.hasKidName)
+check('"Hand the device to Riley" CTA present', reportState.hasHandoffBtn)
+
+console.log('\n=== Clicking handoff → kid home (/) ===')
+const handoffNav = page.waitForFunction(
+  () => location.pathname === '/',
+  { timeout: 8000 },
+).catch(() => null)
+await page.evaluate(() => {
+  const btn = Array.from(document.querySelectorAll('button'))
+    .find(b => /hand the device/i.test(b.textContent || ''))
+  if (btn) btn.click()
+})
+await handoffNav
+await new Promise(r => setTimeout(r, 2000))
+
+// Kid home (MayaProductHome): drill CTA primary, parent-view link top-right,
+// whole-child surface tiles below. No 3D canvas (it's only in onboarding).
+const kidHomeState = await page.evaluate(() => {
+  const bodyText = document.body.innerText || ''
+  const buttons = Array.from(document.querySelectorAll('button'))
+  return {
+    path: location.pathname,
+    hasDrillCta: !!buttons.find(b => /(start today'?s drill|keep going|ready to drill)/i.test(b.textContent || '')),
+    hasParentViewLink: !!buttons.find(b => /parent view/i.test(b.textContent || '')),
+    hasSurfaceTiles: /what else maya holds/i.test(bodyText)
+      && /piano/i.test(bodyText)
+      && /tennis/i.test(bodyText),
+    stillOnLanding: /now she'?s yours/i.test(bodyText),
+  }
+})
+check('On / after handoff', kidHomeState.path === '/', kidHomeState.path)
+check('Kid home drill CTA present', kidHomeState.hasDrillCta)
+check('"Parent view" link present (1-tap back to report)', kidHomeState.hasParentViewLink)
+check('Whole-child surface tiles rendered (piano/tennis)', kidHomeState.hasSurfaceTiles)
+check('Landing NOT showing (setup complete)', !kidHomeState.stillOnLanding)
 
 console.log('\n=== Hard reload — setupComplete must persist ===')
 await page.reload({ waitUntil: 'domcontentloaded', timeout: 45000 })
@@ -144,14 +184,15 @@ await new Promise(r => setTimeout(r, 2000))
 
 const afterReload = await page.evaluate(() => {
   const bodyText = document.body.innerText || ''
+  const buttons = Array.from(document.querySelectorAll('button'))
   return {
     path: location.pathname,
-    hasCanvas: !!document.querySelector('canvas'),
-    stillOnLanding: /WON'T IGNORE/i.test(bodyText),
+    hasDrillCta: !!buttons.find(b => /(start today'?s drill|keep going|ready to drill)/i.test(b.textContent || '')),
+    stillOnLanding: /now she'?s yours/i.test(bodyText),
   }
 })
 check('After reload still at /', afterReload.path === '/', afterReload.path)
-check('After reload dashboard still rendered (canvas)', afterReload.hasCanvas)
+check('After reload kid home still rendered (drill CTA)', afterReload.hasDrillCta)
 check('After reload landing NOT showing', !afterReload.stillOnLanding)
 
 await finish()

@@ -100,11 +100,13 @@ function GatedRoutes() {
     return <Navigate to="/" replace />
   }
 
-  // PRODUCT_MODE post-setup: the public product is the olympiad wedge, not
-  // the 48-route grab-bag Vasco uses. Allowlist the 6 routes that belong
-  // to the wedge and bounce everything else back to /. A paying parent who
-  // typed /tennis or /piano would otherwise think this is a scam grab-bag.
-  // Vasco's deploy (no env var set) skips this — all 48 routes work for him.
+  // PRODUCT_MODE post-setup: under the whole-child positioning, Maya is the
+  // parent's assistant across everything the kid is trying to be great at —
+  // not just AMC. The allowlist now mirrors the SURFACE tiles on the landing
+  // (math, music, sport, sleep, mood, homework/reading) so the pitch matches
+  // the product. Still cuts the long tail of niche routes Vasco uses
+  // (typing, vocab, intel, screentime, etc.) — those belong to the personal
+  // deploy. Vasco's deploy (no env var set) skips this entirely.
   const PRODUCT_ALLOWED_POST_SETUP = new Set([
     '/',
     '/onboarding',
@@ -113,6 +115,14 @@ function GatedRoutes() {
     '/parent',
     '/parent/compass',
     '/profile',
+    // Whole-child surface — matches landing SURFACE tiles
+    '/tennis',
+    '/piano',
+    '/reading',
+    '/homework',
+    '/moods',
+    '/sleep',
+    '/schedule',
   ])
   if (
     PRODUCT_MODE &&

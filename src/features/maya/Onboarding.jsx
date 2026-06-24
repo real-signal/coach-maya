@@ -17,33 +17,35 @@ const C = {
   mono: "'IBM Plex Mono', monospace", display: "'Bebas Neue', sans-serif",
 }
 
-const BASE_QUESTIONS = [
+// Kid-voice questions (Vasco's deploy and any future direct-to-kid mode).
+const BASE_QUESTIONS_KID = [
   {
     key: 'q1',
     text: "Hey! I'm Maya — your coach. What's your name, age, and where are you from?",
     placeholder: "e.g. I'm Alex, 11, from London (Year 7)",
   },
-  {
-    key: 'q2',
-    text: null, // dynamically generated with name
-    placeholder: "e.g. I play football and guitar, and I do coding club",
-  },
-  {
-    key: 'q3',
-    text: null,
-    placeholder: "e.g. I like science and art but I hate maths",
-  },
-  {
-    key: 'q4',
-    text: null,
-    placeholder: "e.g. around 9:30",
-  },
-  {
-    key: 'q5',
-    text: null,
-    placeholder: "e.g. get better at maths / make the school team / learn piano",
-  },
+  { key: 'q2', text: null, placeholder: "e.g. I play football and guitar, and I do coding club" },
+  { key: 'q3', text: null, placeholder: "e.g. I like science and art but I hate maths" },
+  { key: 'q4', text: null, placeholder: "e.g. around 9:30" },
+  { key: 'q5', text: null, placeholder: "e.g. get better at maths / make the school team / learn piano" },
 ]
+
+// Parent-voice questions (PRODUCT_MODE). Parent is the buyer; they fill out
+// Day 1 so the kid never sees a form. Mother-to-parent positioning means
+// Maya addresses the parent directly, asking about their child.
+const BASE_QUESTIONS_PARENT = [
+  {
+    key: 'q1',
+    text: "Hi — I'm Maya. I'll be your kid's coach. Let's start simple: what's your child's name and age?",
+    placeholder: "e.g. His name is Alex, he's 11 (London, Year 7)",
+  },
+  { key: 'q2', text: null, placeholder: "e.g. football twice a week, guitar lessons, coding club" },
+  { key: 'q3', text: null, placeholder: "e.g. loves science and art, struggles with maths" },
+  { key: 'q4', text: null, placeholder: "e.g. usually 9:30" },
+  { key: 'q5', text: null, placeholder: "e.g. get her ready for AMC 8 / land first chair / build the habit" },
+]
+
+const BASE_QUESTIONS = PRODUCT_MODE ? BASE_QUESTIONS_PARENT : BASE_QUESTIONS_KID
 
 // PRODUCT_MODE adds an AMC level question so the olympiad drill has signal
 // from problem #1. Without it the adaptive picker is a coin flip on day one.
@@ -70,24 +72,43 @@ function parseAmcLevel(answer) {
 function getMayaQuestion(index, answers) {
   if (index === 0) return MAYA_QUESTIONS[0].text
 
-  // Extract name from first answer for personalization
+  // Extract kid's name from first answer for personalization. Parent voice
+  // ("his name is Alex" / "her name's Alex" / "Alex is 11") and kid voice
+  // ("I'm Alex") both need to land. Order matters — match parent intros
+  // first since "i'm" can also appear in parent text ("i'm her mom").
   const q1 = (answers.q1 || '').trim()
-  const nameMatch = q1.match(/(?:i'?m|my name is|name'?s|call me)\s+(\w+)/i)
-    || q1.match(/^(\w+)/)
-  const name = nameMatch ? nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1).toLowerCase() : 'you'
+  const nameMatch =
+    q1.match(/(?:his name is|her name is|their name is|name'?s|call (?:him|her|them))\s+([\w-]+)/i) ||
+    q1.match(/(?:i'?m|my name is|call me)\s+([\w-]+)/i) ||
+    q1.match(/^([\w-]+)\b/)
+  const rawName = nameMatch ? nameMatch[1] : null
+  const name = rawName
+    ? rawName.charAt(0).toUpperCase() + rawName.slice(1).toLowerCase()
+    : (PRODUCT_MODE ? 'your kid' : 'you')
 
+  if (PRODUCT_MODE) {
+    // Parent voice — Maya asks the parent about their kid.
+    const questions = [
+      null, // q1 handled above
+      `Good to meet ${name}. What does ${name} do after school? Sports, instruments, clubs, hobbies — whatever's in the mix.`,
+      `What about school — any subjects ${name} loves? And any that are a real struggle?`,
+      `What time does ${name} usually go to bed? (So I know when not to nudge.)`,
+      `What's one thing you want me to help ${name} crush this year? Could be a competition, a habit, a fear — anything counts.`,
+    ]
+    if (index === 5) {
+      return `Last one — where is ${name} on the AMC math curve? AMC 8, AMC 10, AMC 12, or new to all this? (I'll start them at the right level.)`
+    }
+    return questions[index]
+  }
+
+  // Kid voice (Vasco's deploy)
   const questions = [
-    null, // q1 already handled
+    null,
     `Nice to meet you, ${name}. What do you do after school? Any sports, instruments, clubs, hobbies?`,
     `Cool. What about school — any subjects you actually like? And any you can't stand?`,
     `What time do you usually go to bed?`,
-    PRODUCT_MODE
-      ? `What's one thing you want to crush this year? Anything counts.`
-      : `Last one. What's one thing you want to get better at this year? Anything counts.`,
+    `Last one. What's one thing you want to get better at this year? Anything counts.`,
   ]
-  if (PRODUCT_MODE && index === 5) {
-    return `One last thing, ${name} — where are you on the AMC curve? AMC 8, AMC 10, AMC 12, or new to all this? (I'll start you at the right level.)`
-  }
   return questions[index]
 }
 
@@ -209,7 +230,9 @@ export default function Onboarding() {
           setTimeout(() => {
             setMessages(prev => [...prev, {
               from: 'maya',
-              text: "One more thing — pick a 4-digit PIN so your parent can check your progress. Only they'll need it.",
+              text: PRODUCT_MODE
+                ? "Last step — set a 4-digit PIN. Your kid won't need it; this just locks the parent reports so they stay yours."
+                : "One more thing — pick a 4-digit PIN so your parent can check your progress. Only they'll need it.",
             }])
             setShowPinStep(true)
           }, 1200)
@@ -262,11 +285,16 @@ export default function Onboarding() {
 
     setMessages(prev => [...prev, {
       from: 'maya',
-      text: `Let's go, ${profile.name}. Day one starts now.`,
+      text: PRODUCT_MODE
+        ? `Got it. Here's what I'll be watching for ${profile.name} — take a look, then hand the device over.`
+        : `Let's go, ${profile.name}. Day one starts now.`,
     }])
 
     setTimeout(() => {
-      window.location.href = '/'
+      // PRODUCT_MODE: parent just finished setup, send them to their dashboard
+      // (the weekly report) so the first thing they see is what Maya knows
+      // about their kid — then they hand the device to the kid.
+      window.location.href = PRODUCT_MODE ? '/report' : '/'
     }, 1200)
   }
 
@@ -418,7 +446,11 @@ export default function Onboarding() {
 }
 
 function buildSummaryText(profile, schedule) {
-  const lines = [`Here's what I've got, ${profile.name}:\n`]
+  // Parent-voice summary in PRODUCT_MODE: Maya is briefing the parent on
+  // what she now knows about their kid. Kid-voice elsewhere.
+  const lines = PRODUCT_MODE
+    ? [`Here's what I've got on ${profile.name}:\n`]
+    : [`Here's what I've got, ${profile.name}:\n`]
 
   if (profile.hobbies.length > 0) {
     lines.push(`Activities: ${profile.hobbies.join(', ')}`)
@@ -433,12 +465,18 @@ function buildSummaryText(profile, schedule) {
     lines.push(`Goal: ${profile.bigGoals[0]}`)
   }
 
-  lines.push(`\nYour daily schedule (${schedule.length} tasks):`)
+  if (PRODUCT_MODE) {
+    lines.push(`\nDaily plan (${schedule.length} things I'll hold for them):`)
+  } else {
+    lines.push(`\nYour daily schedule (${schedule.length} tasks):`)
+  }
   schedule.forEach(t => {
     lines.push(`  ${t.name} — ${t.duration}min`)
   })
 
-  lines.push(`\nYou can tweak this anytime in Schedule.`)
+  lines.push(PRODUCT_MODE
+    ? `\nYou can adjust any of this anytime in Settings.`
+    : `\nYou can tweak this anytime in Schedule.`)
   return lines.join('\n')
 }
 
